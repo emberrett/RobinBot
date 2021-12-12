@@ -1,38 +1,25 @@
-import os
 import robin_stocks.robinhood as rs
+import os
 
-robin_user = os.environ.get("robinhood_username")
-robin_pass = os.environ.get("robinhood_password")
-rs.login(username=robin_user, password=robin_pass, expiresIn=86400, by_sms=True)
 
-# robin_stocks does not currently support getting top movers for crypto, so I need to set ones to watch manually
-cryptoWatchList = ['BTC', 'DOGE', 'ETC']
+class robLogin:
+    def login(self):
+        robin_user = os.environ.get("robinhood_username")
+        robin_pass = os.environ.get("robinhood_password")
+        rs.login(username=robin_user, password=robin_pass, expiresIn=86400, by_sms=True)
 
-# determines how far from the 52-week high the stock must be before it can be sold
-sellYearThreshold = .95
-# determines at what point a stock will be sold if it dips below a certain currentPrice/52WeekHigh ratio
-offloadYearThreshold = .60
-# determines whether a stock should not be bought if its currentPrice/52WeekHigh ratio dips belo the given treshold
-avoidYearThreshold = .20
-# determines how far from the 52-week high the stock must be before it can be bought
-buyYearThreshold = .95
-# determines how much a stock must decrease as ratio of its total price to be eligible for purchase
-buyThreshold = -.05
-# determines how much a stock must increase as ratio of its total price to be eligible for purchase
-sellThreshold = .05
-# limits how much a stock can be sold for if the sale total is greater than its percentage of your portfolio
-portfolioSellThreshold = .1
-# limits how much a stock can be bought for if the purchase total is greater than its percentage of your portfolio
-portfolioBuyThreshold = .1
-# sets the interval for historical stock data that is retrieved
-interval = 'day'
-# set the span for historical stock data that is retrieved
-span = 'week'
-# sets the data point that is used when calculating price changes
-dataPoint = 'open_price'
+    def logout(self):
+        rs.logout()
 
 
 class robRetriever:
+    def __init__(self, cryptoWatchList, interval, span, dataPoint):
+        # robin_stocks does not currently support getting top movers for crypto, so I need to set ones to watch manually
+        self.cryptoWatchList = cryptoWatchList
+        self.interval = interval
+        self.span = span
+        self.dataPoint = dataPoint
+
     def getTop100MarketMovers(self, limit=100):
         # get top 100 movers on Robinhood and pass them to a list
         tickerList = rs.markets.get_top_100(info='symbol')
@@ -42,10 +29,10 @@ class robRetriever:
     # gets all cryptos (on watchlist and in portfolio) and combines them into one list
 
     def getCryptoList(self):
-        cryptoList = cryptoWatchList
+        cryptoList = self.cryptoWatchList
         cryptoPortfolioSymbols = self.getPortfolioCryptoSymbols()
         for x in cryptoPortfolioSymbols:
-            if x not in cryptoWatchList:
+            if x not in cryptoList:
                 cryptoList.append(x)
         return cryptoList
 
@@ -54,9 +41,9 @@ class robRetriever:
 
     def getHistPrices(self, tickerSymbol):
         if tickerSymbol in self.getCryptoList():
-            stockHistPrices = rs.crypto.get_crypto_historicals(tickerSymbol, interval=interval, span=span)
+            stockHistPrices = rs.crypto.get_crypto_historicals(tickerSymbol, interval=self.interval, span=self.span)
         else:
-            stockHistPrices = rs.stocks.get_stock_historicals(tickerSymbol, interval=interval, span=span)
+            stockHistPrices = rs.stocks.get_stock_historicals(tickerSymbol, interval=self.interval, span=self.span)
         return stockHistPrices
 
     def getCurrentPrice(self, tickerSymbol):
@@ -69,10 +56,10 @@ class robRetriever:
     def getPriceChange(self, tickerSymbol):
         stockHistPrices = self.getHistPrices(tickerSymbol)
         priceChange = 0
-        firstPrice = float(stockHistPrices[0].get(dataPoint))
+        firstPrice = float(stockHistPrices[0].get(self.dataPoint))
         for i, x in enumerate(stockHistPrices[1:], start=1):
-            priceChange = float(stockHistPrices[i].get(dataPoint)) - float(
-                stockHistPrices[i - 1].get(dataPoint))
+            priceChange = float(stockHistPrices[i].get(self.dataPoint)) - float(
+                stockHistPrices[i - 1].get(self.dataPoint))
         return priceChange / firstPrice
 
     def getMultiplePriceChanges(self, tickerList):
@@ -92,6 +79,11 @@ class robRetriever:
         elif direction != 'up':
             return "ERROR: Invalid parameter value"
         return list(sortedTickerDict.keys())[:limit]
+
+    def combineTopMoversWithCrypto(self):
+        topMovers = self.getTop100MarketMovers()
+        topMovers.extend(self.getCryptoList())
+        return topMovers
 
     def sortTopMovers(self, tickerList, positive=True):
         tickerPriceChangeDict = self.getMultiplePriceChanges(tickerList)
@@ -185,32 +177,59 @@ class robRetriever:
 
 
 class robExecutor(robRetriever):
-    def sellPortfolio(self):
-        for key, value in self.sortTopMovers(self.getPortfolioSymbols(), True).items():
+    def __init__(self, cryptoWatchList, interval, span, dataPoint, sellYearThreshold, offloadYearThreshold,
+                 buyYearThreshold, avoidYearThreshold, buyThreshold, sellThreshold, portfolioSellThreshold,
+                 portfolioBuyThreshold, buyingPowerThreshold):
+        super(robExecutor, self).__init__(cryptoWatchList, interval, span, dataPoint)
+        self.sellYearThreshold = sellYearThreshold
+        self.offloadYearThreshold = offloadYearThreshold
+        self.buyYearThreshold = buyYearThreshold
+        self.avoidYearThreshold = avoidYearThreshold
+        self.buyThreshold = buyThreshold
+        self.sellThreshold = sellThreshold
+        self.portfolioSellThreshold = portfolioSellThreshold
+        self.portfolioBuyThreshold = portfolioBuyThreshold
+        self.interval = interval
+        self.span = span
+        self.cryptoWatchList = cryptoWatchList
+        self.dataPoint = dataPoint
+        self.buyingPowerThreshold = buyingPowerThreshold
+
+    def sellPortfolio(self, includeCrypto=True, cryptoOnly=False):
+
+        if cryptoOnly:
+            portfolioDict = self.sortTopMovers(self.getPortfolioCryptoSymbols(), True).items()
+        elif includeCrypto:
+            portfolioDict = self.sortTopMovers(self.getPortfolioSymbols(), True).items()
+        else:
+            portfolioDict = self.sortTopMovers(self.getPortfolioSymbols(False), True).items()
+        resultList = []
+        for key, value in portfolioDict:
             """
             sell stock if the price change is above the sell threshold and current price is not too close to the 52 week
             high, or if the stock has dipped a certain amount as a percentage of its 52 week high
             """
-            if (value > sellThreshold and self.getCurrentPrice(key) / self.get52WeekHigh(
-                    key) < offloadYearThreshold) or self.getCurrentPrice(key) / self.get52WeekHigh(
-                key) < offloadYearThreshold:
-                print('Sell ', key, ' Result: ', self.sell(key))
+
+            if (value > self.sellThreshold and self.getCurrentPrice(key) / self.get52WeekHigh(
+                    key) < self.offloadYearThreshold) or self.getCurrentPrice(key) / self.get52WeekHigh(
+                key) < self.offloadYearThreshold:
+                resultList.append('Sell ', key, ' Result: ', self.sell(key))
+        if resultList == []:
+            return "No portfolio items meet criteria for sale."
+        else:
+            return resultList
 
     def sell(self, tickerSymbol):
-
         """
         sell stock up to x% of total portfolio.
         """
         sellAmount = self.getSymbolEquity(tickerSymbol)
-        if self.getTotalInRobinhood()==0:
-            return "Buying Power is Zero"
-
-        if sellAmount / self.getTotalInRobinhood() > portfolioSellThreshold:
-            sellAmount = portfolioSellThreshold * self.getTotalInRobinhood()
+        if sellAmount / self.getTotalInRobinhood() > self.portfolioSellThreshold:
+            sellAmount = self.portfolioSellThreshold * self.getTotalInRobinhood()
 
         if tickerSymbol in self.getCryptoList():
             result = rs.orders.order_sell_crypto_by_price(tickerSymbol, sellAmount)
-            while result.get('non_field_errors') == 'Insufficient holdings..':
+            while result.get('non_field_errors') == 'Insufficient holdings.':
                 sellAmount = sellAmount * .95
                 result = rs.orders.order_sell_crypto_by_price(tickerSymbol, sellAmount)
         if tickerSymbol not in self.getCryptoList():
@@ -220,22 +239,36 @@ class robExecutor(robRetriever):
                 result = rs.orders.order_sell_fractional_by_price(tickerSymbol, sellAmount)
         return result
 
-
-    def buyFromMarket(self):
-        for key, value in self.sortTopMovers(self.getTop100MarketMovers(), False).items():
+    def buyFromMarket(self, includeCrypto=True, onlyCrypto=False):
+        buyAmount = self.getBuyingPower()
+        if buyAmount / self.getTotalInRobinhood() < self.buyingPowerThreshold:
+            return "No stocks purchased; not enough buying power."
+        if onlyCrypto:
+            marketDict = self.sortTopMovers(self.getCryptoList(), False).items()
+        elif includeCrypto:
+            marketDict = self.sortTopMovers(self.combineTopMoversWithCrypto(), False).items()
+        else:
+            marketDict = self.sortTopMovers(self.getTop100MarketMovers(), False).items()
+        resultList = []
+        for key, value in marketDict:
             """
             buy stock if the price change is below the buy threshold and current price is not too close to the 52 week
             high and if the stock is not under a certain amount as a percentage of its 52 week high
             """
-            if value < buyThreshold and avoidYearThreshold < self.getCurrentPrice(key) / self.get52WeekHigh(
-                    key) < buyYearThreshold:
-                print('Buy ', key, ' Result: ', self.buy(key))
-
+            if value < self.buyThreshold and self.avoidYearThreshold < self.getCurrentPrice(key) / self.get52WeekHigh(
+                    key) < self.buyYearThreshold:
+                resultList.append('Buy ', key, ' Result: ', self.buy(key))
+        if resultList == []:
+            return "No stocks meet criteria for purchase."
+        else:
+            return resultList
 
     def buy(self, tickerSymbol):
         buyAmount = self.getBuyingPower()
-        if buyAmount / self.getTotalInRobinhood() > portfolioBuyThreshold:
-            buyAmount = portfolioBuyThreshold * self.getTotalInRobinhood()
+        if buyAmount / self.getTotalInRobinhood() < self.buyingPowerThreshold:
+            return "Not enough buying power"
+        if buyAmount / self.getTotalInRobinhood() > self.portfolioBuyThreshold:
+            buyAmount = self.portfolioBuyThreshold * self.getTotalInRobinhood()
         if buyAmount < 1:
             return "Fraction too small to purchase"
         if tickerSymbol in self.getCryptoList():
@@ -253,9 +286,3 @@ class robExecutor(robRetriever):
                     "Fraction too small to purchase"
                 result = rs.orders.order_sell_fractional_by_price(tickerSymbol, buyAmount)
         return result
-
-
-re = robExecutor()
-re.sellPortfolio()
-re.buyFromMarket()
-rs.logout()
