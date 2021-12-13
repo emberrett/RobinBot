@@ -195,9 +195,9 @@ class robExecutor(robRetriever):
         self.dataPoint = dataPoint
         self.buyingPowerLimit = buyingPowerLimit
 
-    def sellPortfolio(self, includeCrypto=True, cryptoOnly=False, printResults=False, sellLimit=False):
+    def sellPortfolio(self, includeCrypto=True, onlyCrypto=False, printResults=False, sellLimit=False):
 
-        if cryptoOnly:
+        if onlyCrypto:
             portfolioDict = self.sortTopMovers(self.getPortfolioCryptoSymbols(), True).items()
         elif includeCrypto:
             portfolioDict = self.sortTopMovers(self.getPortfolioSymbols(), True).items()
@@ -218,9 +218,10 @@ class robExecutor(robRetriever):
                         print(resultItem)
                     return resultList
             index += 1
-            if (value > self.sellThreshold and self.getCurrentPrice(key) / self.get52WeekHigh(
-                    key) < self.offloadYearThreshold) or self.getCurrentPrice(key) / self.get52WeekHigh(
-                key) < self.offloadYearThreshold:
+            currentPrice = self.getCurrentPrice(key)
+            yearHigh = self.get52WeekHigh(key)
+            if (value > self.sellThreshold and currentPrice / yearHigh < self.offloadYearThreshold) \
+                    or currentPrice / yearHigh < self.offloadYearThreshold:
                 result = str(self.sell(key))
                 resultItem = str('Sell ' + key + ' Result: ' + result)
                 resultList.append(resultItem)
@@ -236,10 +237,11 @@ class robExecutor(robRetriever):
         sell stock up to x% of total portfolio.
         """
         sellAmount = self.getSymbolEquity(tickerSymbol)
+        totalInRobinhood = self.getTotalInRobinhood()
         if sellAmount == 0:
             return "Can't sell " + tickerSymbol + "; available equity is zero."
-        if sellAmount / self.getTotalInRobinhood() > self.portfolioSellThreshold:
-            sellAmount = self.portfolioSellThreshold * self.getTotalInRobinhood()
+        if sellAmount / totalInRobinhood > self.portfolioSellThreshold:
+            sellAmount = self.portfolioSellThreshold * totalInRobinhood
 
         if tickerSymbol in self.getCryptoList():
             result = rs.orders.order_sell_crypto_by_price(tickerSymbol, sellAmount)
@@ -283,6 +285,8 @@ class robExecutor(robRetriever):
                 resultList.append(resultItem)
                 if printResults:
                     print(resultItem)
+                if "Fraction too small to purchase" in result:
+                    return resultList
         if not resultList:
             return "No stocks meet criteria for purchase."
         else:
