@@ -195,7 +195,7 @@ class robExecutor(robRetriever):
         self.dataPoint = dataPoint
         self.buyingPowerLimit = buyingPowerLimit
 
-    def sellPortfolio(self, includeCrypto=True, cryptoOnly=False):
+    def sellPortfolio(self, includeCrypto=True, cryptoOnly=False, printResults=False, sellLimit=False):
 
         if cryptoOnly:
             portfolioDict = self.sortTopMovers(self.getPortfolioCryptoSymbols(), True).items()
@@ -204,18 +204,29 @@ class robExecutor(robRetriever):
         else:
             portfolioDict = self.sortTopMovers(self.getPortfolioSymbols(False), True).items()
         resultList = []
+        index = 1
         for key, value in portfolioDict:
             """
             sell stock if the price change is above the sell threshold and current price is not too close to the 52 week
             high, or if the stock has dipped a certain amount as a percentage of its 52 week high
             """
-
+            if sellLimit is not False:
+                if index > sellLimit:
+                    resultItem = "Max number of stock sales reached."
+                    resultList.append(resultItem)
+                    if printResults:
+                        print(resultItem)
+                    return resultList
+            index += 1
             if (value > self.sellThreshold and self.getCurrentPrice(key) / self.get52WeekHigh(
                     key) < self.offloadYearThreshold) or self.getCurrentPrice(key) / self.get52WeekHigh(
                 key) < self.offloadYearThreshold:
                 result = str(self.sell(key))
-                resultList.append(str('Sell ' + key + ' Result: ' + result))
-        if resultList == []:
+                resultItem = str('Sell ' + key + ' Result: ' + result)
+                resultList.append(resultItem)
+                if printResults:
+                    print(resultItem)
+        if not resultList:
             return "No portfolio items meet criteria for sale."
         else:
             return resultList
@@ -225,6 +236,8 @@ class robExecutor(robRetriever):
         sell stock up to x% of total portfolio.
         """
         sellAmount = self.getSymbolEquity(tickerSymbol)
+        if sellAmount == 0:
+            return "Can't sell " + tickerSymbol + "; available equity is zero."
         if sellAmount / self.getTotalInRobinhood() > self.portfolioSellThreshold:
             sellAmount = self.portfolioSellThreshold * self.getTotalInRobinhood()
 
@@ -240,8 +253,7 @@ class robExecutor(robRetriever):
                 result = rs.orders.order_sell_fractional_by_price(tickerSymbol, sellAmount)
         return result
 
-    def buyFromMarket(self, includeCrypto=True, onlyCrypto=False):
-        buyAmount = self.getBuyingPower()
+    def buyFromMarket(self, includeCrypto=True, onlyCrypto=False, printResults=False, buyLimit=False):
 
         if onlyCrypto:
             marketDict = self.sortTopMovers(self.getCryptoList(), False).items()
@@ -250,16 +262,28 @@ class robExecutor(robRetriever):
         else:
             marketDict = self.sortTopMovers(self.getTop100MarketMovers(), False).items()
         resultList = []
+        index = 1
         for key, value in marketDict:
             """
             buy stock if the price change is below the buy threshold and current price is not too close to the 52 week
             high and if the stock is not under a certain amount as a percentage of its 52 week high
             """
+            if buyLimit is not False:
+                if index > buyLimit:
+                    resultItem = "Max number of stock purchases reached."
+                    resultList.append(resultItem)
+                    if printResults:
+                        print(resultItem)
+                    return resultList
+            index += 1
             if value < self.buyThreshold and self.avoidYearThreshold < self.getCurrentPrice(key) / self.get52WeekHigh(
                     key) < self.buyYearThreshold:
                 result = str(self.buy(key))
-                resultList.append('Buy ' + key + ' Result: ' + result)
-        if resultList == []:
+                resultItem = str('Buy ' + key + ' Result: ' + result)
+                resultList.append(resultItem)
+                if printResults:
+                    print(resultItem)
+        if not resultList:
             return "No stocks meet criteria for purchase."
         else:
             return resultList
@@ -276,20 +300,22 @@ class robExecutor(robRetriever):
             return "No buying power."
         if buyAmount < 1:
             return "Fraction too small to purchase"
+        if buyAmount / robinHoodTotal > portFolioBuyThreshold:
+            buyAmount = portFolioBuyThreshold * robinHoodTotal
         if tickerSymbol in self.getCryptoList():
             result = rs.orders.order_buy_crypto_by_price(tickerSymbol, buyAmount)
-            while result.get('non_field_errors') == [
-                'Insufficient holdings.'] or buyAmount / robinHoodTotal > portFolioBuyThreshold:
+            while result.get('non_field_errors') == ['Insufficient holdings.']:
                 buyAmount = buyAmount * .95
                 if buyAmount < 1:
-                    "Fraction too small to purchase"
+                    return "Fraction too small to purchase"
                 result = rs.orders.order_buy_crypto_by_price(tickerSymbol, buyAmount)
         if tickerSymbol not in self.getCryptoList():
             result = rs.orders.order_buy_fractional_by_price(tickerSymbol, buyAmount)
             if result.get('detail') is not None:
-                while 'You can only purchase' in result.get('detail') or buyAmount / robinHoodTotal > portFolioBuyThreshold:
+                while 'You can only purchase' in result.get(
+                        'detail') or buyAmount / robinHoodTotal > portFolioBuyThreshold:
                     buyAmount = buyAmount * .95
                     if buyAmount < 1:
-                        "Fraction too small to purchase"
+                        return "Fraction too small to purchase"
                 result = rs.orders.order_sell_fractional_by_price(tickerSymbol, buyAmount)
         return result
