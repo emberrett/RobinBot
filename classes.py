@@ -230,7 +230,7 @@ class robExecutor(robRetriever):
 
         if tickerSymbol in self.getCryptoList():
             result = rs.orders.order_sell_crypto_by_price(tickerSymbol, sellAmount)
-            while result.get('non_field_errors') == 'Insufficient holdings.':
+            while result.get('non_field_errors') == ['Insufficient holdings.']:
                 sellAmount = sellAmount * .95
                 result = rs.orders.order_sell_crypto_by_price(tickerSymbol, sellAmount)
         if tickerSymbol not in self.getCryptoList():
@@ -275,7 +275,7 @@ class robExecutor(robRetriever):
             return "Fraction too small to purchase"
         if tickerSymbol in self.getCryptoList():
             result = rs.orders.order_buy_crypto_by_price(tickerSymbol, buyAmount)
-            while result.get('non_field_errors') == 'Insufficient holdings..':
+            while result.get('non_field_errors') == ['Insufficient holdings..']:
                 buyAmount = buyAmount * .95
                 if buyAmount < 1:
                     "Fraction too small to purchase"
@@ -288,3 +288,4 @@ class robExecutor(robRetriever):
                     "Fraction too small to purchase"
                 result = rs.orders.order_sell_fractional_by_price(tickerSymbol, buyAmount)
         return result
+
