@@ -213,7 +213,8 @@ class robExecutor(robRetriever):
             if (value > self.sellThreshold and self.getCurrentPrice(key) / self.get52WeekHigh(
                     key) < self.offloadYearThreshold) or self.getCurrentPrice(key) / self.get52WeekHigh(
                 key) < self.offloadYearThreshold:
-                resultList.append('Sell ', key, ' Result: ', self.sell(key))
+                result = str(self.sell(key))
+                resultList.append(str('Sell ' + key + ' Result: ' + result))
         if resultList == []:
             return "No portfolio items meet criteria for sale."
         else:
@@ -257,7 +258,8 @@ class robExecutor(robRetriever):
             """
             if value < self.buyThreshold and self.avoidYearThreshold < self.getCurrentPrice(key) / self.get52WeekHigh(
                     key) < self.buyYearThreshold:
-                resultList.append('Buy ', key, ' Result: ', self.buy(key))
+                result = str(self.buy(key))
+                resultList.append('Buy ' + key + ' Result: ' + result)
         if resultList == []:
             return "No stocks meet criteria for purchase."
         else:
@@ -265,7 +267,7 @@ class robExecutor(robRetriever):
 
     def buy(self, tickerSymbol):
         buyAmount = self.getBuyingPower()
-        if buyAmount / self.getTotalInRobinhood() < self.buyingPowerThreshold:
+        if buyAmount / self.getTotalInRobinhood() > self.buyingPowerThreshold or buyAmount == 0:
             return "Not enough buying power"
         if buyAmount / self.getTotalInRobinhood() > self.portfolioBuyThreshold:
             buyAmount = self.portfolioBuyThreshold * self.getTotalInRobinhood()
