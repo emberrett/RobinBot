@@ -179,7 +179,7 @@ class robRetriever:
 class robExecutor(robRetriever):
     def __init__(self, cryptoWatchList, interval, span, dataPoint, sellYearThreshold, offloadYearThreshold,
                  buyYearThreshold, avoidYearThreshold, buyThreshold, sellThreshold, portfolioSellThreshold,
-                 portfolioBuyThreshold, buyingPowerLimit):
+                 portfolioBuyThreshold, buyingPowerLimit, buyDollarLimit):
         super(robExecutor, self).__init__(cryptoWatchList, interval, span, dataPoint)
         self.sellYearThreshold = sellYearThreshold
         self.offloadYearThreshold = offloadYearThreshold
@@ -194,6 +194,7 @@ class robExecutor(robRetriever):
         self.cryptoWatchList = cryptoWatchList
         self.dataPoint = dataPoint
         self.buyingPowerLimit = buyingPowerLimit
+        self.buyDollarLimit = buyDollarLimit
 
     def sellPortfolio(self, includeCrypto=True, onlyCrypto=False, printResults=False, sellLimit=False):
 
@@ -220,7 +221,7 @@ class robExecutor(robRetriever):
             index += 1
             currentPrice = self.getCurrentPrice(key)
             yearHigh = self.get52WeekHigh(key)
-            if (value > self.sellThreshold and currentPrice / yearHigh < self.offloadYearThreshold) \
+            if (value > self.sellThreshold and currentPrice / yearHigh > self.offloadYearThreshold) \
                     or currentPrice / yearHigh < self.offloadYearThreshold:
                 result = str(self.sell(key))
                 resultItem = str('Sell ' + key + ' Result: ' + result)
@@ -239,7 +240,7 @@ class robExecutor(robRetriever):
         sellAmount = self.getSymbolEquity(tickerSymbol)
         totalInRobinhood = self.getTotalInRobinhood()
         if sellAmount == 0:
-            return "Can't sell " + tickerSymbol + "; available equity is zero."
+            return "Can't sell " + tickerSymbol + "; not enough equity to sell."
         if sellAmount / totalInRobinhood > self.portfolioSellThreshold:
             sellAmount = self.portfolioSellThreshold * totalInRobinhood
 
@@ -302,7 +303,7 @@ class robExecutor(robRetriever):
 
         if buyAmount == 0:
             return "No buying power."
-        if buyAmount < 1:
+        if buyAmount < self.buyDollarLimit:
             return "Fraction too small to purchase"
         if buyAmount / robinHoodTotal > portFolioBuyThreshold:
             buyAmount = portFolioBuyThreshold * robinHoodTotal
@@ -310,7 +311,7 @@ class robExecutor(robRetriever):
             result = rs.orders.order_buy_crypto_by_price(tickerSymbol, buyAmount)
             while result.get('non_field_errors') == ['Insufficient holdings.']:
                 buyAmount = buyAmount * .95
-                if buyAmount < 1:
+                if buyAmount < self.buyDollarLimit:
                     return "Fraction too small to purchase"
                 result = rs.orders.order_buy_crypto_by_price(tickerSymbol, buyAmount)
         if tickerSymbol not in self.getCryptoList():
@@ -319,7 +320,7 @@ class robExecutor(robRetriever):
                 while 'You can only purchase' in result.get(
                         'detail') or buyAmount / robinHoodTotal > portFolioBuyThreshold:
                     buyAmount = buyAmount * .95
-                    if buyAmount < 1:
+                    if buyAmount < self.buyDollarLimit:
                         return "Fraction too small to purchase"
                 result = rs.orders.order_sell_fractional_by_price(tickerSymbol, buyAmount)
         return result
