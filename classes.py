@@ -307,6 +307,8 @@ class robExecutor(robRetriever):
             return "Fraction too small to purchase"
         if buyAmount / robinHoodTotal > portFolioBuyThreshold:
             buyAmount = portFolioBuyThreshold * robinHoodTotal
+        if buyAmount / buyingPower > buyingPowerLimit:
+            buyAmount = buyingPower * buyingPowerLimit
         if tickerSymbol in self.getCryptoList():
             result = rs.orders.order_buy_crypto_by_price(tickerSymbol, buyAmount)
             while result.get('non_field_errors') == ['Insufficient holdings.']:
