@@ -317,6 +317,8 @@ class robExecutor(robRetriever):
             marketDict = self.sortTopMovers(self.getTop100MarketMovers(), False).items()
         resultList = []
         index = 1
+        if not marketDict:
+            return "No negative change for provided portfolio symbols."
         for key, value in marketDict:
             """
             buy stock if the price change is below the buy threshold and current price is not too close to the 52 week
@@ -335,10 +337,8 @@ class robExecutor(robRetriever):
             index += 1
             if printResults:
                 print(resultItem)
-        if not resultList:
-            return "No stocks meet criteria for purchase."
-        else:
-            return resultList
+
+        return resultList
 
     def buyWithConditions(self, tickerSymbol, totalInvested):
         buyingPower = self.getBuyingPower()
