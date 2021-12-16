@@ -271,6 +271,7 @@ class robExecutor(robRetriever):
         averageCost = self.getAverageCost(tickerSymbol)
         currentPrice = self.getCurrentPrice(tickerSymbol)
         sellAmount = self.getSymbolEquity(tickerSymbol)
+        priceChange = self.getPriceChange(tickerSymbol)
 
         if sellAmount == 0:
             return "Can't sell " + tickerSymbol + "; not enough equity to sell."
@@ -280,7 +281,10 @@ class robExecutor(robRetriever):
             return self.sell(sellAmount, tickerSymbol)
         if currentPrice / yearHigh < self.sellYearThreshold:
             if (currentPrice - averageCost) / averageCost > self.profitThreshold:
-                return self.sell(sellAmount, tickerSymbol)
+                if priceChange < 0:
+                    return self.sell(sellAmount, tickerSymbol)
+                else:
+                    return "Price has not begun to decrease yet. Will not be sold until growth stops"
             else:
                 return "Profit of sale does not meet profit threshold"
         else:
