@@ -74,7 +74,7 @@ class robRetriever:
     def getCurrentPrice(self, tickerSymbol):
         if tickerSymbol in self.getCryptoList():
             return self.getCurrentCryptoPrice(tickerSymbol)
-        lastPrice = float(rs.get_fundamentals(tickerSymbol, info='open')[0])
+        lastPrice = float(self.getHistPrices(tickerSymbol)[-1].get(self.dataPoint))
         return lastPrice
 
     def getCurrentCryptoPrice(self, ticker):
@@ -83,7 +83,7 @@ class robRetriever:
     def getPriceChange(self, tickerSymbol):
         stockHistPrices = self.getHistPrices(tickerSymbol)
         firstPrice = float(stockHistPrices[0].get(self.dataPoint))
-        currentPrice = self.getCurrentPrice(tickerSymbol)
+        currentPrice = float(stockHistPrices[-1].get(self.dataPoint))
         return (currentPrice - firstPrice) / firstPrice
 
     def getMultiplePriceChanges(self, tickerList):
