@@ -6,7 +6,7 @@ class robLogin:
     def login(self):
         robin_user = os.environ.get("robinhood_username")
         robin_pass = os.environ.get("robinhood_password")
-        rs.login(username=robin_user, password=robin_pass, expiresIn=86400, by_sms=True)
+        rs.login(username=robin_user, password=robin_pass, by_sms=True)
 
     def logout(self):
         rs.logout()
@@ -239,11 +239,11 @@ class robExecutor(robRetriever):
         self.profitThreshold = profitThreshold
 
     def sellPortfolio(self, includeCrypto=True, onlyCrypto=False, printResults=False, sellLimit=False):
-        portfolioDict = self.getTopPortfolioMovers(onlyCrypto=onlyCrypto, includeCrypto=includeCrypto)
+        portfolioDict = self.getTopPortfolioMovers(onlyCrypto=onlyCrypto, includeCrypto=includeCrypto).items()
         resultList = []
         index = 1
         totalInRobinhood = self.getTotalInRobinhood()
-        for key in portfolioDict:
+        for key, value in portfolioDict:
             """
             sell stock if the price change is above the sell threshold and current price is not too close to the 52 week
             high, or if the stock has dipped a certain amount as a percentage of its 52 week high
