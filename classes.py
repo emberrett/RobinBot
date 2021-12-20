@@ -128,6 +128,7 @@ class robRetriever:
         costDifferenceDict = dict(reversed(sorted(costDifferenceDict.items(), key=lambda item: item[1])))
         if not positive:
             costDifferenceDict = dict(sorted(costDifferenceDict.items(), key=lambda item: item[1]))
+
         if positive:
             for key, value in costDifferenceDict.items():
                 if value > 0:
@@ -238,9 +239,12 @@ class robExecutor(robRetriever):
         self.buyDollarLimit = buyDollarLimit
         self.profitThreshold = profitThreshold
 
-    def sellPortfolio(self, includeCrypto=True, onlyCrypto=False, printResults=False, sellLimit=False):
+    def sellPortfolio(self, includeCrypto=True, positive=True, onlyCrypto=False, printResults=False, sellLimit=False):
         portfolioDict = self.getTopPortfolioMovers(onlyCrypto=onlyCrypto, includeCrypto=includeCrypto).items()
+        if not portfolioDict:
+            return "No profit to be made from given portfolio holdings."
         resultList = []
+        return portfolioDict
         index = 1
         totalInRobinhood = self.getTotalInRobinhood()
         for key, value in portfolioDict:
