@@ -244,7 +244,6 @@ class robExecutor(robRetriever):
         if not portfolioDict:
             return "No profit to be made from given portfolio holdings."
         resultList = []
-        return portfolioDict
         index = 1
         totalInRobinhood = self.getTotalInRobinhood()
         for key, value in portfolioDict:
