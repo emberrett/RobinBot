@@ -287,9 +287,9 @@ class robExecutor(robRetriever):
                 if priceChange < 0:
                     return self.sell(sellAmount, tickerSymbol)
                 else:
-                    return "Price has not begun to decrease yet. Will not be sold until growth stops"
+                    return "Price has not begun to decrease yet. Will not be sold until growth stops."
             else:
-                return "Profit of sale does not meet profit threshold"
+                return "Profit of sale does not meet profit threshold."
         else:
             return "Proximity to 52 week high exceeds threshold."
 
@@ -306,7 +306,7 @@ class robExecutor(robRetriever):
 
         if tickerSymbol not in self.getCryptoList():
             result = rs.orders.order_sell_fractional_by_price(tickerSymbol, sellAmount)
-            while result.get('detail') == 'Not enough shares to sell.':
+            while result.get('detail') == 'N ot enough shares to sell.':
                 sellAmount = sellAmount * .95
                 if sellAmount < 1:
                     return "Sale price below $1.00 threshold."
@@ -365,7 +365,7 @@ class robExecutor(robRetriever):
             buyAmount = buyingPower * buyingPowerLimit
 
         if priceChange < self.buyThreshold:
-            if self.avoidYearThreshold < currentPrice / yearHigh:
+            if currentPrice / yearHigh > self.avoidYearThreshold:
                 if currentPrice / yearHigh < self.buyYearThreshold:
                     return self.buy(tickerSymbol=tickerSymbol, buyAmount=buyAmount)
                 else:
