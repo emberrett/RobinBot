@@ -220,7 +220,7 @@ class robRetriever:
 
 class robExecutor(robRetriever):
     def __init__(self, cryptoWatchList, interval, span, dataPoint, sellYearThreshold, offloadYearThreshold,
-                 buyYearThreshold, avoidYearThreshold, buyThreshold, sellThreshold, portfolioSellThreshold,
+                 buyYearThreshold, avoidYearThreshold, buyThreshold, portfolioSellThreshold,
                  portfolioBuyThreshold, buyingPowerLimit, buyDollarLimit, profitThreshold):
         super(robExecutor, self).__init__(cryptoWatchList, interval, span, dataPoint)
         self.sellYearThreshold = sellYearThreshold
@@ -228,7 +228,6 @@ class robExecutor(robRetriever):
         self.buyYearThreshold = buyYearThreshold
         self.avoidYearThreshold = avoidYearThreshold
         self.buyThreshold = buyThreshold
-        self.sellThreshold = sellThreshold
         self.portfolioSellThreshold = portfolioSellThreshold
         self.portfolioBuyThreshold = portfolioBuyThreshold
         self.interval = interval
@@ -239,7 +238,7 @@ class robExecutor(robRetriever):
         self.buyDollarLimit = buyDollarLimit
         self.profitThreshold = profitThreshold
 
-    def sellPortfolio(self, includeCrypto=True, positive=True, onlyCrypto=False, printResults=False, sellLimit=False):
+    def sellPortfolio(self, includeCrypto=True, onlyCrypto=False, printResults=False, sellLimit=False):
         portfolioDict = self.getTopPortfolioMovers(onlyCrypto=onlyCrypto, includeCrypto=includeCrypto).items()
         if not portfolioDict:
             return "No profit to be made from given portfolio holdings."
@@ -322,6 +321,7 @@ class robExecutor(robRetriever):
             marketDict = self.sortTopMovers(self.combineTopMoversWithCrypto(), False).items()
         else:
             marketDict = self.sortTopMovers(self.getTop100MarketMovers(), False).items()
+        print(marketDict)
         resultList = []
         index = 1
         if not marketDict:
