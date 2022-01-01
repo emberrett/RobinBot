@@ -377,7 +377,6 @@ class robExecutor(robRetriever):
             return "Price decrease lower than buy threshold."
 
     def buy(self, tickerSymbol, buyAmount):
-        portFolioBuyThreshold = self.portfolioBuyThreshold
         if tickerSymbol in self.getCryptoList():
             result = rs.orders.order_buy_crypto_by_price(tickerSymbol, buyAmount)
             while result.get('non_field_errors') == ['Insufficient holdings.']:
