@@ -74,7 +74,7 @@ class robRetriever:
     def getCurrentPrice(self, tickerSymbol):
         if tickerSymbol in self.getCryptoList():
             return self.getCurrentCryptoPrice(tickerSymbol)
-        return float(rs.markets.get_stock_quote_by_symbol(tickerSymbol).get('ask_price'))
+        return float(rs.markets.get_stock_quote_by_symbol(tickerSymbol).get('last_trade_price'))
 
     def getCurrentCryptoPrice(self, ticker):
         return float(rs.crypto.get_crypto_quote(ticker, info='mark_price'))
@@ -294,22 +294,24 @@ class robExecutor(robRetriever):
             return "Proximity to 52 week high exceeds threshold."
 
     def sell(self, sellAmount, tickerSymbol):
+
         if sellAmount < self.sellDollarLimit:
-            return "Sale price below $1.00 threshold."
+            return "Sale price below threshold."
         if tickerSymbol in self.getCryptoList():
             result = rs.orders.order_sell_crypto_by_price(tickerSymbol, sellAmount)
             while result.get('non_field_errors') == ['Insufficient holdings.']:
                 sellAmount = sellAmount * .95
-                if sellAmount < 1:
-                    return "Sale price below $1.00 threshold."
+                if sellAmount < self.sellDollarLimit:
+                    return "Sale price below threshold."
                 result = rs.orders.order_sell_crypto_by_price(tickerSymbol, sellAmount)
 
         if tickerSymbol not in self.getCryptoList():
             result = rs.orders.order_sell_fractional_by_price(tickerSymbol, sellAmount)
-            while result.get('detail') == 'N ot enough shares to sell.':
+            while result.get('detail') == 'Not enough shares to sell.':
                 sellAmount = sellAmount * .95
                 if sellAmount < self.sellDollarLimit:
-                    return "Sale price below $1.00 threshold."
+                    return "Sale price below threshold."
+                print(sellAmount)
                 result = rs.orders.order_sell_fractional_by_price(tickerSymbol, sellAmount)
         return result
 
