@@ -201,6 +201,20 @@ class robRetriever:
                 quantity = float((cryptoPortfolioItems[i].get('cost_bases')[0]).get('direct_quantity'))
                 return quantity * self.getCurrentCryptoPrice(code)
 
+    def getShares(self, tickerSymbol):
+        portfolioItems = rs.account.build_holdings()
+        if tickerSymbol in self.getCryptoList():
+            return self.getCryptoShares(tickerSymbol)
+        return float((portfolioItems.get(tickerSymbol)).get('quantity'))
+
+    def getCryptoShares(self, tickerSymbol):
+        cryptoPortfolioItems = rs.crypto.get_crypto_positions()
+        for i, x in enumerate(cryptoPortfolioItems):
+            code = (x.get('currency')).get('code')
+            if code == tickerSymbol:
+                quantity = float((cryptoPortfolioItems[i].get('cost_bases')[0]).get('direct_quantity'))
+                return quantity
+
     def getBuyingPower(self):
         return float(rs.profiles.load_account_profile(info='buying_power'))
 
@@ -284,35 +298,35 @@ class robExecutor(robRetriever):
             return self.sell(sellAmount, tickerSymbol)
         if currentPrice / yearHigh < self.sellYearThreshold:
             if (currentPrice - averageCost) / averageCost > self.profitThreshold:
-                if priceChange < 0:
-                    return self.sell(sellAmount, tickerSymbol)
-                else:
-                    return "Price has not begun to decrease yet. Will not be sold until growth stops."
+                return self.sell(sellAmount, tickerSymbol)
             else:
                 return "Profit of sale does not meet profit threshold."
         else:
             return "Proximity to 52 week high exceeds threshold."
 
     def sell(self, sellAmount, tickerSymbol):
-
-        if sellAmount < self.sellDollarLimit:
-            return "Sale price below threshold."
+        currentPrice = self.getCurrentPrice(tickerSymbol)
         if tickerSymbol in self.getCryptoList():
+            if sellAmount < self.sellDollarLimit:
+                result = rs.orders.order_sell_crypto_by_quantity(tickerSymbol, round(sellAmount / currentPrice, 8))
+                return result
             result = rs.orders.order_sell_crypto_by_price(tickerSymbol, sellAmount)
-            while result.get('non_field_errors') == ['Insufficient holdings.']:
-                sellAmount = sellAmount * .95
-                if sellAmount < self.sellDollarLimit:
-                    return "Sale price below threshold."
-                result = rs.orders.order_sell_crypto_by_price(tickerSymbol, sellAmount)
+            if result.get('non_field_errors') == ['Insufficient holdings.']:
+                totalShares = self.getCryptoShares(tickerSymbol)
+                result = rs.orders.order_sell_crypto_by_quantity(tickerSymbol, totalShares)
+                return result
+            return result
 
         if tickerSymbol not in self.getCryptoList():
+            if sellAmount < self.sellDollarLimit:
+                print(round(sellAmount / currentPrice, 8))
+                result = rs.orders.order_sell_fractional_by_quantity(tickerSymbol, round(sellAmount / currentPrice, 6))
+                return result
             result = rs.orders.order_sell_fractional_by_price(tickerSymbol, sellAmount)
-            while result.get('detail') == 'Not enough shares to sell.':
-                sellAmount = sellAmount * .95
-                if sellAmount < self.sellDollarLimit:
-                    return "Sale price below threshold."
-                print(sellAmount)
-                result = rs.orders.order_sell_fractional_by_price(tickerSymbol, sellAmount)
+            if result.get('detail') == 'Not enough shares to sell.':
+                totalShares = self.getShares(tickerSymbol)
+                result = rs.orders.order_sell_fractional_by_quantity(tickerSymbol, totalShares)
+                return result
         return result
 
     def buyFromMarket(self, includeCrypto=True, onlyCrypto=False, printResults=False, buyLimit=False):
