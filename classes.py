@@ -202,18 +202,18 @@ class robRetriever:
                 return quantity * self.getCurrentCryptoPrice(code)
 
     def getShares(self, tickerSymbol):
-        portfolioItems = rs.account.build_holdings()
         if tickerSymbol in self.getCryptoList():
-            return self.getCryptoShares(tickerSymbol)
-        return float((portfolioItems.get(tickerSymbol)).get('quantity'))
-
-    def getCryptoShares(self, tickerSymbol):
-        cryptoPortfolioItems = rs.crypto.get_crypto_positions()
-        for i, x in enumerate(cryptoPortfolioItems):
-            code = (x.get('currency')).get('code')
-            if code == tickerSymbol:
-                quantity = float((cryptoPortfolioItems[i].get('cost_bases')[0]).get('direct_quantity'))
-                return quantity
+            cryptoPortfolioItems = rs.crypto.get_crypto_positions()
+            for i, x in enumerate(cryptoPortfolioItems):
+                code = (x.get('currency')).get('code')
+                if code == tickerSymbol:
+                    quantity = float((cryptoPortfolioItems[i].get('cost_bases')[0]).get('direct_quantity'))
+                    return quantity
+        else:
+            portfolioItems = rs.account.build_holdings()
+            if tickerSymbol in self.getCryptoList():
+                return self.getCryptoShares(tickerSymbol)
+            return float((portfolioItems.get(tickerSymbol)).get('quantity'))
 
     def getBuyingPower(self):
         return float(rs.profiles.load_account_profile(info='buying_power'))
@@ -254,6 +254,7 @@ class robExecutor(robRetriever):
         self.profitThreshold = profitThreshold
 
     def sellPortfolio(self, includeCrypto=True, onlyCrypto=False, printResults=False, sellLimit=False):
+        # need to just change to check to sell all stocks in portfolio, will do this in the future.
         portfolioDict = self.getTopPortfolioMovers(onlyCrypto=onlyCrypto, includeCrypto=includeCrypto).items()
         if not portfolioDict:
             return "No profit to be made from given portfolio holdings."
@@ -288,27 +289,42 @@ class robExecutor(robRetriever):
         averageCost = self.getAverageCost(tickerSymbol)
         currentPrice = self.getCurrentPrice(tickerSymbol)
         sellAmount = self.getSymbolEquity(tickerSymbol)
-        priceChange = self.getPriceChange(tickerSymbol)
+        currentEquity = sellAmount
+        currentShares = self.getShares(tickerSymbol)
 
-        if sellAmount == 0:
-            return "Can't sell " + tickerSymbol + "; not enough equity to sell."
+        # if sale account for more than certain % of portfolio, lower the number to the max % of portfolio
         if sellAmount / totalInvested > self.portfolioSellThreshold:
             sellAmount = self.portfolioSellThreshold * totalInvested
+        # if current price is far enough away from 52-week high, offload the shares
+        #NEED TO ADD LOGIC FOR NOT SELLING IF PROFIT IS POSITIVE, MAYBE DON'T NEED THIS WITH AVOID THRESHOLD
         if currentPrice / yearHigh < self.offloadYearThreshold:
             return self.sell(sellAmount, tickerSymbol)
+        # check that the price isn't too close to the 52-week high
         if currentPrice / yearHigh < self.sellYearThreshold:
+            # check that the sale meets the profit threshold
             if (currentPrice - averageCost) / averageCost > self.profitThreshold:
+                # equity only stores two decimal places, need to sell all shares if the sale amount is zero
+                if sellAmount == 0:
+                    return self.sell(currentShares, tickerSymbol, True)
+                # if sale amount < dollar limit, sell as shares as opposed to price to avoid $1 sale restriction
+                if sellAmount < self.sellDollarLimit:
+                    sellAmount = sellAmount / currentPrice
+                    if sellAmount > currentShares:
+                        sellAmount = currentShares
+                    return self.sell(sellAmount, tickerSymbol, True)
+                # if equity - sale amount < the dollar limit, sell all shares
+                if currentEquity - sellAmount < self.sellDollarLimit:
+                    return self.sell(currentShares, tickerSymbol, True)
                 return self.sell(sellAmount, tickerSymbol)
             else:
                 return "Profit of sale does not meet profit threshold."
         else:
             return "Proximity to 52 week high exceeds threshold."
 
-    def sell(self, sellAmount, tickerSymbol):
-        currentPrice = self.getCurrentPrice(tickerSymbol)
+    def sell(self, sellAmount, tickerSymbol, shares=False):
         if tickerSymbol in self.getCryptoList():
-            if sellAmount < self.sellDollarLimit:
-                result = rs.orders.order_sell_crypto_by_quantity(tickerSymbol, round(sellAmount / currentPrice, 8))
+            if shares:
+                result = rs.orders.order_sell_crypto_by_quantity(tickerSymbol, round(sellAmount, 8))
                 return result
             result = rs.orders.order_sell_crypto_by_price(tickerSymbol, sellAmount)
             if result.get('non_field_errors') == ['Insufficient holdings.']:
@@ -318,9 +334,8 @@ class robExecutor(robRetriever):
             return result
 
         if tickerSymbol not in self.getCryptoList():
-            if sellAmount < self.sellDollarLimit:
-                print(round(sellAmount / currentPrice, 8))
-                result = rs.orders.order_sell_fractional_by_quantity(tickerSymbol, round(sellAmount / currentPrice, 6))
+            if shares:
+                result = rs.orders.order_sell_fractional_by_quantity(tickerSymbol, round(sellAmount, 6))
                 return result
             result = rs.orders.order_sell_fractional_by_price(tickerSymbol, sellAmount)
             if result.get('detail') == 'Not enough shares to sell.':
@@ -338,7 +353,6 @@ class robExecutor(robRetriever):
             marketDict = self.sortTopMovers(self.combineTopMoversWithCrypto(), False).items()
         else:
             marketDict = self.sortTopMovers(self.getTop100MarketMovers(), False).items()
-        print(marketDict)
         resultList = []
         index = 1
         if not marketDict:
