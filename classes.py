@@ -325,15 +325,17 @@ class robExecutor(robRetriever):
         priceChange = self.getPriceChange(tickerSymbol)
         currentPrice = self.getCurrentPrice(tickerSymbol)
         yearHigh = self.get52WeekHigh(tickerSymbol)
-        if buyAmount == 0:
-            return "No buying power."
-        if buyAmount < self.buyDollarLimit:
-            return "Amount too small to purchase"
+        if buyingPower < self.buyDollarLimit:
+            return "Buying power less than dollar limit."
+        # check if purchase takes up too much of portfolio
         if buyAmount / totalInvested > portFolioBuyThreshold:
             buyAmount = portFolioBuyThreshold * totalInvested
+        # check if buy amount is greater than buying power limit
         if buyAmount / buyingPower > buyingPowerLimit:
             buyAmount = buyingPower * buyingPowerLimit
-
+        # if buy amount is less than dollar limit, set buy amount to dollar
+        if buyAmount < self.buyDollarLimit:
+            buyAmount = self.buyDollarLimit
         if priceChange < self.buyThreshold:
             if currentPrice / yearHigh > self.avoidYearThreshold:
                 if currentPrice / yearHigh < self.buyYearThreshold:
