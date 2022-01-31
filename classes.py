@@ -200,7 +200,8 @@ class robExecutor(robRetriever):
         self.buyDollarLimit = buyDollarLimit
         self.profitThreshold = profitThreshold
 
-    def sellPortfolio(self, includeCrypto=True, onlyCrypto=False, printResults=False, sellLimit=False):
+    def sellPortfolio(self, includeCrypto=True, onlyCrypto=False, printResults=False, sellLimit=False,
+                      sellFractional=False):
         # get list of portfolio tickers
         if onlyCrypto:
             tickerList = self.getPortfolioCryptoSymbols()
@@ -220,15 +221,17 @@ class robExecutor(robRetriever):
                         print(resultItem)
                     return resultList
             index += 1
-            result = str(self.sellWithConditions(ticker, totalInvested=totalInRobinhood))
+            result = str(self.sellWithConditions(ticker, totalInvested=totalInRobinhood, sellFractional=sellFractional))
             resultItem = str('Sell ' + ticker + ' Result: ' + result)
             resultList.append(resultItem)
             if printResults:
                 print(resultItem)
         return resultList
 
-    def sellWithConditions(self, tickerSymbol, totalInvested):
-        # sell stock up to x% of total portfolio.
+    def sellWithConditions(self, tickerSymbol, totalInvested, sellFractional=False):
+        currentShares = self.getShares(tickerSymbol)
+        if currentShares == 0:
+            return "No shares available for sale."
         averageCost = self.getAverageCost(tickerSymbol)
         currentPrice = self.getCurrentPrice(tickerSymbol)
         # check to see if profit meets threshold
@@ -240,14 +243,14 @@ class robExecutor(robRetriever):
             return "Proximity to 52 week high exceeds threshold."
         sellAmount = self.getSymbolEquity(tickerSymbol)
         currentEquity = sellAmount
-        currentShares = self.getShares(tickerSymbol)
+
+        # sell all shares of stock if sellFractional is false
+        if sellAmount == 0 or sellFractional is False:
+            return self.sell(currentShares, tickerSymbol, True)
 
         # if sale account for more than certain % of portfolio, lower the number to the max % of portfolio
         if sellAmount / totalInvested > self.portfolioSellThreshold:
             sellAmount = self.portfolioSellThreshold * totalInvested
-
-        if sellAmount == 0:
-            return self.sell(currentShares, tickerSymbol, True)
 
         # if sale amount < dollar limit, sell as shares as opposed to price to avoid $1 sale restriction
         if sellAmount < self.sellDollarLimit:
@@ -283,9 +286,12 @@ class robExecutor(robRetriever):
                 return result
         return result
 
-    def buyFromMarket(self, includeCrypto=True, onlyCrypto=False, printResults=False, buyLimit=False):
+    def buyFromMarket(self, includeCrypto=True, onlyCrypto=False, printResults=False, buyLimit=False,
+                      excludePortfolioItems=True):
         robinHoodTotal = self.getTotalInRobinhood()
-
+        portfolioSymbols = []
+        if excludePortfolioItems:
+            portfolioSymbols = self.getPortfolioSymbols(includeCrypto=includeCrypto)
         if onlyCrypto:
             marketDict = self.sortTopMovers(self.getCryptoList(), False).items()
         elif includeCrypto:
@@ -308,7 +314,7 @@ class robExecutor(robRetriever):
                     if printResults:
                         print(resultItem)
                     return resultList
-            result = str(self.buyWithConditions(key, robinHoodTotal))
+            result = str(self.buyWithConditions(key, robinHoodTotal, portfolioSymbols=portfolioSymbols))
             resultItem = str('Buy ' + key + ' Result: ' + result)
             resultList.append(resultItem)
             index += 1
@@ -317,7 +323,10 @@ class robExecutor(robRetriever):
 
         return resultList
 
-    def buyWithConditions(self, tickerSymbol, totalInvested):
+    # change so that we don't buy tickers we already have in our portfolio
+    def buyWithConditions(self, tickerSymbol, totalInvested, portfolioSymbols=[]):
+        if tickerSymbol in portfolioSymbols:
+            return "Symbol already in portfolio."
         buyingPower = self.getBuyingPower()
         buyingPowerLimit = self.buyingPowerLimit
         portFolioBuyThreshold = self.portfolioBuyThreshold
