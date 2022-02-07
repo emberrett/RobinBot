@@ -242,7 +242,7 @@ class robExecutor(robRetriever):
         # check that the price isn't too close to the 52-week high
         if currentPrice / yearHigh > self.sellYearThreshold:
             return "Proximity to 52 week high exceeds threshold. Price: " + str(
-                currentPrice) + " 52-week high: " + yearHigh
+                currentPrice) + " 52-week high: " + str(yearHigh)
         sellAmount = self.getSymbolEquity(tickerSymbol)
         currentEquity = sellAmount
 
