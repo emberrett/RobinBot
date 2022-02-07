@@ -235,12 +235,14 @@ class robExecutor(robRetriever):
         averageCost = self.getAverageCost(tickerSymbol)
         currentPrice = self.getCurrentPrice(tickerSymbol)
         # check to see if profit meets threshold
-        if (currentPrice - averageCost) / averageCost < self.profitThreshold:
-            return "Profit of sale does not meet profit threshold."
+        profit = (currentPrice - averageCost) / averageCost
+        if profit < self.profitThreshold:
+            return "Profit of sale does not meet profit threshold. (" + "{:.2%}".format(profit) + ")"
         yearHigh = self.get52WeekHigh(tickerSymbol)
         # check that the price isn't too close to the 52-week high
         if currentPrice / yearHigh > self.sellYearThreshold:
-            return "Proximity to 52 week high exceeds threshold."
+            return "Proximity to 52 week high exceeds threshold. Price: " + str(
+                currentPrice) + " 52-week high: " + yearHigh
         sellAmount = self.getSymbolEquity(tickerSymbol)
         currentEquity = sellAmount
 
@@ -301,7 +303,7 @@ class robExecutor(robRetriever):
         resultList = []
         index = 1
         if not marketDict:
-            return "No negative change for provided portfolio symbols."
+            return "No negative change for given symbols."
         for key, value in marketDict:
             """
             buy stock if the price change is below the buy threshold and current price is not too close to the 52 week
@@ -309,7 +311,7 @@ class robExecutor(robRetriever):
             """
             if buyLimit is not False:
                 if index > buyLimit:
-                    resultItem = "Max number of stock purchases reached."
+                    resultItem = "Max number of stock purchases reached. (" + str(buyLimit) + ")"
                     resultList.append(resultItem)
                     if printResults:
                         print(resultItem)
@@ -335,7 +337,7 @@ class robExecutor(robRetriever):
         currentPrice = self.getCurrentPrice(tickerSymbol)
         yearHigh = self.get52WeekHigh(tickerSymbol)
         if buyingPower < self.buyDollarLimit:
-            return "Buying power less than dollar limit."
+            return "Buying power less than dollar limit. (" + str(buyingPower) + ")"
         # check if purchase takes up too much of portfolio
         if buyAmount / totalInvested > portFolioBuyThreshold:
             buyAmount = portFolioBuyThreshold * totalInvested
@@ -350,11 +352,13 @@ class robExecutor(robRetriever):
                 if currentPrice / yearHigh < self.buyYearThreshold:
                     return self.buy(tickerSymbol=tickerSymbol, buyAmount=buyAmount)
                 else:
-                    return "Price too close to 52-week high threshold."
+                    return "Price too close to 52-week high threshold. Price: " + str(
+                        currentPrice) + " 52-week high: " + yearHigh
             else:
-                return "Price too far from 52-week high threshold."
+                return "Price too far from 52-week high threshold. Price: " + str(
+                    currentPrice) + " 52-week high: " + yearHigh
         else:
-            return "Price decrease lower than buy threshold."
+            return "Price decrease lower than buy threshold. (" + "{:.2%}".format(priceChange) + ")"
 
     def buy(self, tickerSymbol, buyAmount):
         if tickerSymbol in self.getCryptoList():
@@ -362,7 +366,7 @@ class robExecutor(robRetriever):
             while result.get('non_field_errors') == ['Insufficient holdings.']:
                 buyAmount = buyAmount * .90
                 if buyAmount < self.buyDollarLimit:
-                    return "Fraction too small to purchase"
+                    return "Fraction too small to purchase (" + str(buyAmount) + ")"
                 result = rs.orders.order_buy_crypto_by_price(tickerSymbol, buyAmount)
         if tickerSymbol not in self.getCryptoList():
             result = rs.orders.order_buy_fractional_by_price(tickerSymbol, buyAmount)
@@ -371,6 +375,6 @@ class robExecutor(robRetriever):
                         'detail'):
                     buyAmount = buyAmount * .90
                     if buyAmount < self.buyDollarLimit:
-                        return "Fraction too small to purchase"
+                        return "Fraction too small to purchase (" + str(buyAmount) + ")"
                 result = rs.orders.order_sell_fractional_by_price(tickerSymbol, buyAmount)
         return result
