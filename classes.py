@@ -353,10 +353,10 @@ class robExecutor(robRetriever):
                     return self.buy(tickerSymbol=tickerSymbol, buyAmount=buyAmount)
                 else:
                     return "Price too close to 52-week high threshold. Price: " + str(
-                        currentPrice) + " 52-week high: " + yearHigh
+                        currentPrice) + " 52-week high: " + str(yearHigh)
             else:
                 return "Price too far from 52-week high threshold. Price: " + str(
-                    currentPrice) + " 52-week high: " + yearHigh
+                    currentPrice) + " 52-week high: " + str(yearHigh)
         else:
             return "Price decrease lower than buy threshold. (" + "{:.2%}".format(priceChange) + ")"
 
