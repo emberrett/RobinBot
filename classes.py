@@ -36,12 +36,13 @@ class robRetriever:
 
     def getPortfolioCryptoSymbols(self):
         cryptoPortfolioItems = rs.crypto.get_crypto_positions()
-        cryptPortfolioSymbolList = []
+        cryptoPortfolioSymbolList = []
         for x in cryptoPortfolioItems:
-            cryptoSymbol = (x.get('currency')).get('code')
-            if cryptoSymbol != 'USD':
-                cryptPortfolioSymbolList.append(cryptoSymbol)
-        return cryptPortfolioSymbolList
+            if float(x['cost_bases'][0]['direct_cost_basis']) > 0:
+                cryptoSymbol = (x.get('currency')).get('code')
+                if cryptoSymbol != 'USD':
+                    cryptoPortfolioSymbolList.append(cryptoSymbol)
+            return cryptoPortfolioSymbolList
 
     def getCryptoList(self):
         cryptoList = self.cryptoWatchList
@@ -205,7 +206,7 @@ class robExecutor(robRetriever):
         self.buyDollarLimit = buyDollarLimit
         self.profitThreshold = profitThreshold
 
-    def sellPortfolio(self, includeCrypto=True, onlyCrypto=False, printResults=False, sellLimit=False,
+    def sellPortfolio(self, includeCrypto=True, onlyCrypto=False, sellLimit=False,
                       sellFractional=False):
         # get list of portfolio tickers
         if onlyCrypto:
@@ -222,15 +223,13 @@ class robExecutor(robRetriever):
                 if index > sellLimit:
                     resultItem = "Max number of stock sales reached."
                     resultList.append(resultItem)
-                    if printResults:
-                        print(resultItem)
                     return resultList
             index += 1
             result = str(self.sellWithConditions(ticker, totalInvested=totalInRobinhood, sellFractional=sellFractional))
             resultItem = str('Sell ' + ticker + ' Result: ' + result)
             resultList.append(resultItem)
-            if printResults:
-                print(resultItem)
+        if not resultList:
+            resultList.append("No options to sell.")
         return resultList
 
     def sellWithConditions(self, tickerSymbol, totalInvested, sellFractional=False):
@@ -293,7 +292,7 @@ class robExecutor(robRetriever):
                 return result
         return result
 
-    def buyFromMarket(self, includeCrypto=True, onlyCrypto=False, printResults=False, buyLimit=False,
+    def buyFromMarket(self, includeCrypto=True, onlyCrypto=False, buyLimit=False,
                       excludePortfolioItems=True):
         robinHoodTotal = self.getTotalInRobinhood()
         portfolioSymbols = []
@@ -318,16 +317,11 @@ class robExecutor(robRetriever):
                 if index > buyLimit:
                     resultItem = "Max number of stock purchases reached. (" + str(buyLimit) + ")"
                     resultList.append(resultItem)
-                    if printResults:
-                        print(resultItem)
                     return resultList
             result = str(self.buyWithConditions(key, robinHoodTotal, portfolioSymbols=portfolioSymbols))
             resultItem = str('Buy ' + key + ' Result: ' + result)
             resultList.append(resultItem)
             index += 1
-            if printResults:
-                print(resultItem)
-
         return resultList
 
     # change so that we don't buy tickers we already have in our portfolio
