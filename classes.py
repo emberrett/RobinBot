@@ -1,13 +1,18 @@
 import robin_stocks.robinhood as rs
 import os
+import pyotp
 
 
 class robLogin:
-    def login(self):
-        robin_user = os.environ.get("robinhood_username")
-        robin_pass = os.environ.get("robinhood_password")
-        rs.login(username=robin_user, password=robin_pass, by_sms=True)
 
+    def login(self):
+        robin_user = os.environ["robinhood_username"]
+        robin_pass = os.environ["robinhood_password"]
+        authApp = os.environ['robinhood_auth']
+        totp = pyotp.TOTP(authApp).now()
+        return rs.login(username=robin_user, password=robin_pass, mfa_code=totp)
+
+    # Update Session data with authorization or raise exception with the information present in data.
     def logout(self):
         rs.logout()
 
