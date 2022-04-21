@@ -10,7 +10,7 @@ class robLogin:
         robin_pass = os.environ["robinhood_password"]
         authApp = os.environ['robinhood_auth']
         totp = pyotp.TOTP(authApp).now()
-        return rs.login(username=robin_user, password=robin_pass, mfa_code=totp)
+        return rs.login(username=robin_user, password=robin_pass, mfa_code=totp, store_session=False)
 
     # Update Session data with authorization or raise exception with the information present in data.
     def logout(self):
