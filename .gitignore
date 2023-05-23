@@ -3,3 +3,4 @@
 __pycache__
 crypto_buy_sell.py
 full_buy_sell.py
+.env
