@@ -17,66 +17,29 @@ class RobLogin:
         rs.logout()
 
 
-class RobRetriever:
-    def __init__(self, crypto_watchlist, interval, span, data_point):
+class RobStockRetriever:
+    def __init__(self, **kwargs):
         # robin_stocks does not currently support getting top movers for crypto, so I need to set ones to watch manually
-        self.crypto_watchlist = crypto_watchlist
-        self.interval = interval
-        self.span = span
-        self.data_point = data_point
+        self.crypto_watchlist = kwargs["crypto_watchlist"]
+        self.interval = kwargs["interval"]
+        self.span = kwargs["span"]
+        self.data_point = kwargs["data_point"]
 
-    def get_portfolio_symbols(self, include_crypto=True):
+    def get_portfolio_symbols(self):
         portfolio_items = rs.account.build_holdings()
         ticker_symbols = list(portfolio_items.keys())
-        if include_crypto:
-            crypto_symbol_list = self.get_portfolio_crypto_symbols()
-            for x in crypto_symbol_list:
-                ticker_symbols.append(x)
         return ticker_symbols
 
-    def get_portfolio_crypto_symbols(self):
-        crypto_portfolio_items = rs.crypto.get_crypto_positions()
-        crypto_portfolio_symbol_list = []
-        for x in crypto_portfolio_items:
-            if float(x['cost_bases'][0]['direct_cost_basis']) > 0:
-                crypto_symbol = (x.get('currency')).get('code')
-                if crypto_symbol != 'USD':
-                    crypto_portfolio_symbol_list.append(crypto_symbol)
-            return crypto_portfolio_symbol_list
 
-    def get_crypto_list(self):
-        crypto_list = self.crypto_watchlist
-        crypto_portfolio_symbols = self.get_portfolio_crypto_symbols()
-        for x in crypto_portfolio_symbols:
-            if x not in crypto_list:
-                crypto_list.append(x)
-        return crypto_list
 
     def get_average_cost(self, ticker_symbol):
-        if ticker_symbol in self.get_crypto_list():
-            return self.get_crypto_average_cost(ticker_symbol)
-        else:
-            return float((rs.account.build_holdings().get(ticker_symbol)).get('average_buy_price'))
+        return float((rs.account.build_holdings().get(ticker_symbol)).get('average_buy_price'))
 
-    def get_crypto_average_cost(self, ticker_symbol):
-        crypto_portfolio_items = rs.crypto.get_crypto_positions()
-        for i, x in enumerate(crypto_portfolio_items):
-            code = (x.get('currency')).get('code')
-            if code == ticker_symbol:
-                costBasis = float((crypto_portfolio_items[i].get('cost_bases')[0]).get('direct_cost_basis'))
-                quantity = float((crypto_portfolio_items[i].get('cost_bases')[0]).get('direct_quantity'))
-                return costBasis / quantity
 
     def get_historical_prices(self, ticker_symbol):
-        if ticker_symbol in self.get_crypto_list():
-            stock_historical_prices = rs.crypto.get_crypto_historicals(ticker_symbol, interval=self.interval, span=self.span)
-        else:
-            stock_historical_prices = rs.stocks.get_stock_historicals(ticker_symbol, interval=self.interval, span=self.span)
-        return stock_historical_prices
+        return rs.stocks.get_stock_historicals(ticker_symbol, interval=self.interval, span=self.span)
 
     def get_current_price(self, ticker_symbol):
-        if ticker_symbol in self.get_crypto_list():
-            return self.get_current_crypto_price(ticker_symbol)
         return float(rs.markets.get_stock_quote_by_symbol(ticker_symbol).get('last_trade_price'))
 
     def get_current_crypto_price(self, ticker):
@@ -88,25 +51,21 @@ class RobRetriever:
         current_price = self.get_current_price(ticker_symbol)
         return (current_price - first_price) / first_price
 
-    def get_multiple_price_changes(self, ticker_list):
+    def get_price_changes(self, ticker_list):
         mover_data = {}
         for x in ticker_list:
             mover_data[x] = self.get_price_change(x)
         return mover_data
 
-    def get_top_100_market_movers(self, limit=100):
-        # get top 100 movers on Robinhood and pass them to a list
+    def get_top_n_market_movers(self, limit=100):
+        if limit > 100:
+            raise Exception("Limit for top n movers is 100.")
         ticker_list = rs.markets.get_top_100(info='symbol')
         ticker_list = ticker_list[:limit]
         return ticker_list
 
-    def combine_top_movers_with_crypto(self):
-        top_movers = self.get_top_100_market_movers()
-        top_movers.extend(self.get_crypto_list())
-        return top_movers
-
     def sort_top_movers(self, ticker_list, positive=True):
-        ticker_price_change_dict = self.get_multiple_price_changes(ticker_list)
+        ticker_price_change_dict = self.get_price_changes(ticker_list)
         single_sided_ticker_dict = {}
         if positive:
             single_sided_ticker_dict = dict(reversed(sorted(ticker_price_change_dict.items(), key=lambda item: item[1])))
@@ -121,22 +80,9 @@ class RobRetriever:
         return single_sided_ticker_dict
 
     def get_symbol_equity(self, ticker_symbol):
-        portfolio_items = rs.account.build_holdings()
-        if ticker_symbol in self.get_crypto_list():
-            return self.get_single_crypto_equity(ticker_symbol)
+        portfolio_items = self.get_portfolio_symbols()
         return float((portfolio_items.get(ticker_symbol)).get('equity'))
 
-    def get_crypto_portfolio_equity(self):
-        crypto_ticker_dict = {}
-        crypto_portfolio_items = rs.crypto.get_crypto_positions()
-        for i, x in enumerate(crypto_portfolio_items):
-            code = (x.get('currency')).get('code')
-            if code != 'USD':
-                crypto_ticker_dict[code] = float(self.get_single_crypto_equity(code))
-        return crypto_ticker_dict
-
-    def get_total_crypto_equity(self):
-        return sum(self.get_crypto_portfolio_equity().values())
 
     def get_total_equity(self, include_crypto=True):
         stock_portfolio_dict = rs.account.build_holdings()
@@ -147,6 +93,94 @@ class RobRetriever:
             return portfolioEquity + self.get_total_crypto_equity()
         return portfolioEquity
 
+
+    def get_shares(self, ticker_symbol):
+        crypto_portfolio_items = rs.crypto.get_crypto_positions()
+        for i, x in enumerate(crypto_portfolio_items):
+            code = (x.get('currency')).get('code')
+            if code == ticker_symbol:
+                quantity = float((crypto_portfolio_items[i].get('cost_bases')[0]).get('direct_quantity'))
+                return quantity
+      
+
+    def get_buying_power(self):
+        return float(rs.profiles.load_account_profile(info='buying_power'))
+
+    def get_total_invested(self, include_crypto=True):
+        return self.get_buying_power() + self.get_total_equity(include_crypto=include_crypto)
+    
+    def get_total_in_robinhood(self):
+        return self.get_buying_power() + self.get_total_invested()
+
+    def get_52_week_high(self, ticker_symbol):
+        if ticker_symbol in self.get_crypto_list():
+            return float(max(rs.crypto.get_crypto_historicals(ticker_symbol, 'day', 'year', info='high_price')))
+        return float(rs.stocks.get_fundamentals(ticker_symbol, info='high_52_weeks')[0])
+
+
+class RobCryptoRetriever(RobStockRetriever):
+    def __init__(self, **kwargs):
+        # robin_stocks does not currently support getting top movers for crypto, so I need to set ones to watch manually
+        self.crypto_watchlist = kwargs["crypto_watchlist"]
+        self.interval = kwargs["interval"]
+        self.span = kwargs["span"]
+        self.data_point = kwargs["data_point"]
+
+
+    def get_portfolio_symbols(self):
+        crypto_portfolio_items = rs.crypto.get_crypto_positions()
+        crypto_portfolio_symbol_list = []
+        for x in crypto_portfolio_items:
+            if float(x['cost_bases'][0]['direct_cost_basis']) > 0:
+                crypto_symbol = (x.get('currency')).get('code')
+                if crypto_symbol != 'USD':
+                    crypto_portfolio_symbol_list.append(crypto_symbol)
+            return crypto_portfolio_symbol_list
+
+    def get_crypto_portfolio_and_watchlist_symbols(self):
+        crypto_list = self.crypto_watchlist
+        crypto_portfolio_symbols = self.get_portfolio_crypto_symbols()
+        for x in crypto_portfolio_symbols:
+            if x not in crypto_list:
+                crypto_list.append(x)
+        return crypto_list
+
+
+    def get_average_cost(self, ticker_symbol):
+        crypto_portfolio_items = rs.crypto.get_crypto_positions()
+        for i, x in enumerate(crypto_portfolio_items):
+            code = (x.get('currency')).get('code')
+            if code == ticker_symbol:
+                costBasis = float((crypto_portfolio_items[i].get('cost_bases')[0]).get('direct_cost_basis'))
+                quantity = float((crypto_portfolio_items[i].get('cost_bases')[0]).get('direct_quantity'))
+                return costBasis / quantity
+
+    def get_historical_prices(self, ticker_symbol):
+        return rs.crypto.get_crypto_historicals(ticker_symbol, interval=self.interval, span=self.span)
+
+
+    def get_current_price(self, ticker):
+        return float(rs.crypto.get_crypto_quote(ticker, info='mark_price'))
+
+
+    def get_symbol_equity(self, ticker_symbol):
+        portfolio_items = rs.account.build_holdings()
+        if ticker_symbol in self.get_crypto_list():
+            return self.get_single_crypto_equity(ticker_symbol)
+
+    def get_portfolio_equity(self):
+        crypto_ticker_dict = {}
+        crypto_portfolio_items = rs.crypto.get_crypto_positions()
+        for i, x in enumerate(crypto_portfolio_items):
+            code = (x.get('currency')).get('code')
+            if code != 'USD':
+                crypto_ticker_dict[code] = float(self.get_single_crypto_equity(code))
+        return crypto_ticker_dict
+
+    def get_total_equity(self):
+        return sum(self.get_portfolio_equity().values())
+
+
     def get_single_crypto_equity(self, ticker_symbol):
         crypto_portfolio_items = rs.crypto.get_crypto_positions()
         for i, x in enumerate(crypto_portfolio_items):
@@ -155,84 +189,60 @@ class RobRetriever:
                 quantity = float((crypto_portfolio_items[i].get('cost_bases')[0]).get('direct_quantity'))
                 return quantity * self.get_current_crypto_price(code)
 
-    def getShares(self, ticker_symbol):
-        if ticker_symbol in self.get_crypto_list():
-            crypto_portfolio_items = rs.crypto.get_crypto_positions()
-            for i, x in enumerate(crypto_portfolio_items):
-                code = (x.get('currency')).get('code')
-                if code == ticker_symbol:
-                    quantity = float((crypto_portfolio_items[i].get('cost_bases')[0]).get('direct_quantity'))
-                    return quantity
-        else:
-            portfolio_items = rs.account.build_holdings()
-            if ticker_symbol in self.get_crypto_list():
-                return self.get_crypto_shares(ticker_symbol)
-            return float((portfolio_items.get(ticker_symbol)).get('quantity'))
-
-    def get_buying_power(self):
-        return float(rs.profiles.load_account_profile(info='buying_power'))
-
-    def get_total_invested(self, include_crypto=True):
-        return self.get_buying_power() + self.get_total_equity(include_crypto=include_crypto)
-
-    def get_total_in_robinhood(self):
-        return self.get_buying_power() + self.get_total_invested()
+    def get_shares(self, ticker_symbol):
+        crypto_portfolio_items = rs.crypto.get_crypto_positions()
+        for i, x in enumerate(crypto_portfolio_items):
+            code = (x.get('currency')).get('code')
+            if code == ticker_symbol:
+                quantity = float((crypto_portfolio_items[i].get('cost_bases')[0]).get('direct_quantity'))
+                return quantity
 
 
     def get_52_week_high(self, ticker_symbol):
-        if ticker_symbol in self.get_crypto_list():
-            return float(max(rs.crypto.get_crypto_historicals(ticker_symbol, 'day', 'year', info='high_price')))
-        return float(rs.stocks.get_fundamentals(ticker_symbol, info='high_52_weeks')[0])
+        return float(max(rs.crypto.get_crypto_historicals(ticker_symbol, 'day', 'year', info='high_price')))
 
 
-class RobExecutor(RobRetriever):
-    def __init__(self, crypto_watchlist, interval, span, data_point, sell_year_threshold,
-                 sell_dollar_limit,
-                 buy_year_threshold, avoid_year_threshold, buy_threshold, portfolio_sell_threshold,
-                 portfolio_buy_threshold, buying_power_limit, buy_dollar_limit, profit_threshold):
-        super(RobExecutor, self).__init__(crypto_watchlist, interval, span, data_point)
-        self.sell_year_threshold = sell_year_threshold
-        self.sell_dollar_limit = sell_dollar_limit
-        self.buy_year_threshold = buy_year_threshold
-        self.avoid_year_threshold = avoid_year_threshold
-        self.buy_threshold = buy_threshold
-        self.portfolio_sell_threshold = portfolio_sell_threshold
-        self.portfolio_buy_threshold = portfolio_buy_threshold
-        self.interval = interval
-        self.span = span
-        self.crypto_watchlist = crypto_watchlist
-        self.data_point = data_point
-        self.buying_power_limit = buying_power_limit
-        self.buy_dollar_limit = buy_dollar_limit
-        self.profit_threshold = profit_threshold
+class RobExecutor():
+    def __init__(self, retriever, **kwargs):
+        self.retriever = retriever
+        self.avoid_year_threshold = kwargs["avoid_year_threshold"]
+        self.buy_dollar_limit = kwargs["buy_dollar_limit"]
+        self.buy_threshold = kwargs["buy_threshold"]
+        self.buy_year_threshold = kwargs["buy_year_threshold"]
+        self.buying_power_limit = kwargs["buying_power_limit"]
+        self.crypto_watchlist = kwargs["crypto_watchlist"]
+        self.data_point = kwargs["data_point"]
+        self.interval = kwargs["interval"]
+        self.portfolio_buy_threshold = kwargs["portfolio_buy_threshold"]
+        self.portfolio_sell_threshold = kwargs["portfolio_sell_threshold"]
+        self.profit_threshold = kwargs["profit_threshold"]
+        self.sell_dollar_limit = kwargs["sell_dollar_limit"]
+        self.sell_limit = kwargs["sell_limit"]
+        self.sell_fractional = kwargs["sell_fractional"]
+        self.sell_year_threshold = kwargs["sell_year_threshold"]
+        self.span = kwargs["span"]
 
-    def sell_portfolio(self, include_crypto=True, only_crypto=False, sell_limit=False,
-                      sellFractional=False):
-        # get list of portfolio tickers
-        if only_crypto:
-            ticker_list = self.get_portfolio_crypto_symbols()
-        elif include_crypto:
-            ticker_list = self.get_portfolio_symbols()
-        else:
-            ticker_list = self.get_portfolio_symbols(include_crypto=False)
+
+    def sell_portfolio(self):
+        ticker_list = self.retriever.get_portfolio_symbols()
         index = 1
         result_list = []
-        total_in_robinhood = self.get_total_in_robinhood()
+        total_in_robinhood = self.retriever.get_total_in_robinhood()
         for ticker in ticker_list:
-            if sell_limit is not False:
-                if index > sell_limit:
+            if self.sell_limit is not False:
+                if index > self.sell_limit:
                     result_item = "Max number of stock sales reached."
                     result_list.append(result_item)
                     return result_list
             index += 1
-            result = str(self.sell_with_conditions(ticker, total_invested=total_in_robinhood, sellFractional=sellFractional))
+            result = str(self.sell_with_conditions(ticker, total_invested=total_in_robinhood))
             result_item = str('Sell ' + ticker + ' Result: ' + result)
             result_list.append(result_item)
         if not result_list:
             result_list.append("No options to sell.")
         return result_list
 
-    def sell_with_conditions(self, ticker_symbol, total_invested, sellFractional=False):
+    def sell_with_conditions(self, ticker_symbol, total_invested):
         current_shares = self.getShares(ticker_symbol)
         if current_shares == 0:
             return "No shares available for sale."
@@ -251,7 +261,7 @@ class RobExecutor(RobRetriever):
         current_equity = sell_amount
 
         # sell all shares of stock if sellFractional is false
-        if sell_amount == 0 or sellFractional is False:
+        if sell_amount == 0 or self.sell_fractional is False:
             return self.sell(current_shares, ticker_symbol, True)
 
         # if sale account for more than certain % of portfolio, lower the number to the max % of portfolio
@@ -276,7 +286,7 @@ class RobExecutor(RobRetriever):
                 return result
             result = rs.orders.order_sell_crypto_by_price(ticker_symbol, sell_amount)
             if result.get('non_field_errors') == ['Insufficient holdings.']:
-                total_shares = self.get_crypto_shares(ticker_symbol)
+                total_shares = self.getShares(ticker_symbol)
                 result = rs.orders.order_sell_crypto_by_quantity(ticker_symbol, total_shares)
                 return result
             return result
@@ -303,7 +313,7 @@ class RobExecutor(RobRetriever):
         elif include_crypto:
             market_dict = self.sort_top_movers(self.combine_top_movers_with_crypto(), False).items()
         else:
-            market_dict = self.sort_top_movers(self.get_top_100_market_movers(), False).items()
+            market_dict = self.sort_top_movers(self.get_top_n_market_movers(), False).items()
         result_list = []
         index = 1
         if not market_dict:

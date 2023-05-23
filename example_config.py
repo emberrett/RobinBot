@@ -1,0 +1,18 @@
+config = {
+    "avoid_year_threshold": 1,
+    "buy_dollar_limit": 1,
+    "buy_threshold": 1,
+    "buying_power_limit": 1,
+    "buy_year_threshold": 1,
+    "crypto_watchlist": 1,
+    "data_point": 1,
+    "interval": 1,
+    "portfolio_buy_threshold": 1,
+    "portfolio_sell_threshold": 1,
+    "profit_threshold": 1,
+    "sell_dollar_limit": 1,
+    "sell_limit": 1,
+    "sell_fractional": True,
+    "sell_year_threshold": 1,
+    "span": 1,
+}
