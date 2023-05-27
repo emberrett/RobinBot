@@ -12,13 +12,14 @@ config = {
     # No current method for getting top movers for crypto (like we can for normal stocks),
     # So we provide static list of cryptos to watch
     "crypto_watchlist": ['BTC', 'DOGE', 'ETC', 'BSV', 'BCH', 'LTC', 'ETC', 'ETH'],
-    "data_point": 1,
+    # the data point of a stock to run analysis on. Options are open_price, close_price, high_price, and low_price
+    "data_point": "close_price",
     # Sets the interval for historical stock data that is retrieved.
-    # Available options are '5minute', '10minute', 'hour', 'day', and 'week'.
+    # Available options are '5minute', '10minute', 'hour', 'day', and 'week'. Interval must be less than span
     "interval": "day",
     # Sets the span for historical stock data that is retrieved when determining movement
-    # Available options are '5minute', '10minute', 'hour', 'day', and 'week'.
-    "span": 1,
+    # Available options are day, week, month, 3month, year, or 5year. Span must be greater than interval.
+    "span": "week",
     # Limits how much a stock can be bought for if the purchase total is greater than its percentage of your portfolio
     "portfolio_buy_threshold": .1,
     # Limits how much a stock can be sold for if the sale total is greater than its percentage of your portfolio

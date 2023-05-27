@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 
 class RobinBot:
-    def __init__(self, **kwargs):
+    def __init__(self, sandbox=False, **kwargs):
 
         self.interval = kwargs["interval"]
         self.span = kwargs["span"]
@@ -26,6 +26,7 @@ class RobinBot:
         self.sell_fractional = kwargs["sell_fractional"]
         self.sell_year_threshold = kwargs["sell_year_threshold"]
         self.span = kwargs["span"]
+        self.sandbox = sandbox # won't actually execute orders if set to True
 
     def login(self):
         load_dotenv()
@@ -81,6 +82,8 @@ class RobinBot:
         return self.sell(sell_amount, ticker_symbol)
 
     def sell(self, sell_amount, ticker_symbol, shares=False):
+        if self.sandbox:
+            return f"Sandbox mode enabled. Simulated sell amount for {ticker_symbol} is ${sell_amount}"
         if shares:
             result = rs.orders.order_sell_fractional_by_quantity(
                 ticker_symbol, round(sell_amount, 6))
@@ -164,6 +167,8 @@ class RobinBot:
             return f"Price decrease lower than buy threshold. ({'{:.2%}'.format(price_change)})"
 
     def buy(self, ticker_symbol, buy_amount):
+        if self.sandbox:
+            return f"Sandbox mode enabled. Simulated buy amount for {ticker_symbol} is ${buy_amount}"
         result = rs.orders.order_buy_fractional_by_price(
             ticker_symbol, buy_amount)
         if result.get('detail') is not None:
@@ -172,7 +177,7 @@ class RobinBot:
                 buy_amount = buy_amount * .90
                 if buy_amount < self.buy_dollar_limit:
                     return "Fraction too small to purchase (" + str(buy_amount) + ")"
-            result = rs.orders.order_sell_fractional_by_price(
+            result = rs.orders.order_buy_fractional_by_price(
                 ticker_symbol, buy_amount)
 
         return result
@@ -309,12 +314,7 @@ class RobinCryptoBot(RobinBot):
             return crypto_portfolio_symbol_list
 
     def get_crypto_portfolio_and_watchlist_symbols(self):
-        crypto_list = self.crypto_watchlist
-        crypto_portfolio_symbols = self.get_portfolio_symbols()
-        for x in crypto_portfolio_symbols:
-            if x not in crypto_list:
-                crypto_list.append(x)
-        return crypto_list
+        return(set(self.crypto_watchlist.extend(self.get_portfolio_symbols())))
 
     def get_average_cost(self, ticker_symbol):
         crypto_portfolio_items = rs.crypto.get_crypto_positions()
@@ -335,7 +335,7 @@ class RobinCryptoBot(RobinBot):
 
     def get_symbol_equity(self, ticker_symbol):
         if ticker_symbol in self.get_portfolio_symbols():
-            return self.get_single_crypto_equity(ticker_symbol)
+            return self.get_symbol_equity(ticker_symbol)
         else:
             raise Exception("Symbol is not in portfolio.")
 
@@ -346,13 +346,13 @@ class RobinCryptoBot(RobinBot):
             code = (x.get('currency')).get('code')
             if code != 'USD':
                 crypto_ticker_dict[code] = float(
-                    self.get_single_crypto_equity(code))
+                    self.get_symbol_equity(code))
         return crypto_ticker_dict
 
     def get_total_equity(self):
         return sum(self.get_portfolio_equity().values())
 
-    def get_single_crypto_equity(self, ticker_symbol):
+    def get_symbol_equity(self, ticker_symbol):
         crypto_portfolio_items = rs.crypto.get_crypto_positions()
         for i, x in enumerate(crypto_portfolio_items):
             code = (x.get('currency')).get('code')
