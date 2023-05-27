@@ -10,6 +10,7 @@ class TestRetrievalMethods(unittest.TestCase):
         self.robin_bot = RobinBot(**example_config.config)
 
     test_symbol = 'AAPL'
+    test_symbol_list = ['AAPL', 'AMZN', 'GOOGL']
 
     def setUp(self) -> None:
         self.robin_bot.login()
@@ -27,7 +28,7 @@ class TestRetrievalMethods(unittest.TestCase):
 
     def test_get_historical_prices(self):
         self.assertIsInstance(
-            self.robin_bot.get_historical_prices(self.test_symbol), list)
+            self.robin_bot.get_historical_prices(self.test_symbol_list), list)
 
     def test_get_current_price(self):
         self.assertIsInstance(
@@ -39,7 +40,7 @@ class TestRetrievalMethods(unittest.TestCase):
 
     def test_get_price_changes(self):
         self.assertIsInstance(self.robin_bot.get_price_changes(
-            ['AAPL', 'AMZN', 'GOOGL']), dict)
+            self.test_symbol_list), dict)
 
     def test_get_top_n_market_movers(self):
         self.assertIsInstance(self.robin_bot.get_top_n_market_movers(), list)
@@ -69,17 +70,18 @@ class TestRetrievalMethods(unittest.TestCase):
             portfolio_ticker_symbol), float)
 
     def test_get_total_in_robinhood(self):
-        portfolio_ticker_symbol = self.robin_bot.get_portfolio_symbols()[0]
-        self.assertIsInstance(self.robin_bot.get_total_in_robinhood(
-            portfolio_ticker_symbol), float)
+        self.assertIsInstance(self.robin_bot.get_total_in_robinhood(), float)
+
 
 class TestCryptoRetrievalMethods(TestRetrievalMethods):
 
     def __init__(self, methodName: str = "runTest") -> None:
         super().__init__(methodName)
         self.robin_bot = RobinCryptoBot(**example_config.config)
-        
+
     test_symbol = 'BTC'
+    test_symbol_list = ['BTC']
+
 
 if __name__ == '__main__':
     unittest.main()

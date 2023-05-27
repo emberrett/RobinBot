@@ -26,7 +26,7 @@ class RobinBot:
         self.sell_fractional = kwargs["sell_fractional"]
         self.sell_year_threshold = kwargs["sell_year_threshold"]
         self.span = kwargs["span"]
-        self.sandbox = sandbox # won't actually execute orders if set to True
+        self.sandbox = sandbox  # won't actually execute orders if set to True
 
     def login(self):
         load_dotenv()
@@ -254,7 +254,7 @@ class RobinBot:
         return single_sided_ticker_dict
 
     def get_symbol_equity(self, ticker_symbol):
-        portfolio_items = self.get_portfolio_symbols()
+        portfolio_items = rs.account.build_holdings()
         return float((portfolio_items.get(ticker_symbol)).get('equity'))
 
     def get_total_equity(self):
@@ -285,6 +285,7 @@ class RobinCryptoBot(RobinBot):
     def __init__(self, **kwargs):
         # robin_stocks does not currently support getting top movers for crypto, so I need to set ones to watch manually
         self.crypto_watchlist = kwargs["crypto_watchlist"]
+        super().__init__(**kwargs)
 
     def sell(self, sell_amount, ticker_symbol, shares=False):
         if shares:
@@ -314,7 +315,7 @@ class RobinCryptoBot(RobinBot):
             return crypto_portfolio_symbol_list
 
     def get_crypto_portfolio_and_watchlist_symbols(self):
-        return(set(self.crypto_watchlist.extend(self.get_portfolio_symbols())))
+        return (set(self.crypto_watchlist.extend(self.get_portfolio_symbols())))
 
     def get_average_cost(self, ticker_symbol):
         crypto_portfolio_items = rs.crypto.get_crypto_positions()
@@ -359,7 +360,7 @@ class RobinCryptoBot(RobinBot):
             if code == ticker_symbol:
                 quantity = float((crypto_portfolio_items[i].get(
                     'cost_bases')[0]).get('direct_quantity'))
-                return quantity * self.get_current_crypto_price(code)
+                return quantity * self.get_current_price(code)
 
     def get_shares(self, ticker_symbol):
         crypto_portfolio_items = rs.crypto.get_crypto_positions()
