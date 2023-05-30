@@ -25,7 +25,7 @@ config = {
     # Limits how much a stock can be sold for if the sale total is greater than its percentage of your portfolio
     "portfolio_sell_threshold": 1,
     # Determines how much profit must be made as percentage of average buy price before sale can be executed
-    "profit_threshold": 1,
+    "profit_threshold": .15,
     # Determines how small (in dollars) a single sale can be
     "sell_dollar_limit": 1,
     # The max number of sell transactions that can occur when selling multiple symbols at once

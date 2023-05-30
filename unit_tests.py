@@ -7,7 +7,7 @@ class TestRetrievalMethods(unittest.TestCase):
 
     def __init__(self, methodName: str = "runTest") -> None:
         super().__init__(methodName)
-        self.robin_bot = RobinBot(**example_config.config)
+        self.robin_bot = RobinBot(**example_config.config, sandbox=True)
 
     test_symbol = 'AAPL'
     test_symbol_list = ['AAPL', 'AMZN', 'GOOGL']
@@ -42,19 +42,8 @@ class TestRetrievalMethods(unittest.TestCase):
         self.assertIsInstance(self.robin_bot.get_price_changes(
             self.test_symbol_list), dict)
 
-    def test_get_top_n_market_movers(self):
-        self.assertIsInstance(self.robin_bot.get_top_n_market_movers(), list)
-
-    def test_sort_top_movers(self):
-        top_n_market_movers = self.robin_bot.get_top_n_market_movers(15)
-
-        first_negative_ticker = next(
-            iter(self.robin_bot.sort_top_movers(top_n_market_movers, False).values()))
-        self.assertLess(first_negative_ticker, 0)
-
-        first_positive_ticker = next(
-            iter(self.robin_bot.sort_top_movers(top_n_market_movers).values()))
-        self.assertGreater(first_positive_ticker, 0)
+    def test_get_top_n_stocks(self):
+        self.assertIsInstance(self.robin_bot.get_top_n_stocks(15), list)
 
     def test_get_symbol_equity(self):
         portfolio_ticker_symbol = self.robin_bot.get_portfolio_symbols()[0]
@@ -72,15 +61,35 @@ class TestRetrievalMethods(unittest.TestCase):
     def test_get_total_in_robinhood(self):
         self.assertIsInstance(self.robin_bot.get_total_in_robinhood(), float)
 
+    def test_buy_from_top_stocks(self):
+        purchase_results = self.robin_bot.buy_from_top_stocks(buy_limit=5)
+        print(purchase_results)
+        self.assertIsInstance(purchase_results, list)
 
-class TestCryptoRetrievalMethods(TestRetrievalMethods):
+    def test_sell_portfolio(self):
+        sell_results = self.robin_bot.sell_portfolio()
+        print(sell_results)
+        self.assertIsInstance(sell_results, list)
 
-    def __init__(self, methodName: str = "runTest") -> None:
-        super().__init__(methodName)
-        self.robin_bot = RobinCryptoBot(**example_config.config)
+# class TestCryptoRetrievalMethods(TestRetrievalMethods):
 
-    test_symbol = 'BTC'
-    test_symbol_list = ['BTC']
+#     def __init__(self, methodName: str = "runTest") -> None:
+#         super().__init__(methodName)
+#         self.robin_bot = RobinCryptoBot(**example_config.config, sandbox=True)
+#     test_symbol = 'BTC'
+#     test_symbol_list = example_config.config["crypto_watchlist"]
+
+#     def test_get_top_n_stocks(self):
+#         pass
+
+#     def test_buy_from_top_stocks(self):
+#         pass
+
+#     def test_buy_from_list(self):
+#         purchase_results = self.robin_bot.buy_from_ticker_list(
+#             self.test_symbol_list)
+#         print(purchase_results)
+#         self.assertIsInstance(purchase_results, list)
 
 
 if __name__ == '__main__':

@@ -27,6 +27,7 @@ class RobinBot:
         self.sell_year_threshold = kwargs["sell_year_threshold"]
         self.span = kwargs["span"]
         self.sandbox = sandbox  # won't actually execute orders if set to True
+        self.total_in_robinhood = None
 
     def login(self):
         load_dotenv()
@@ -42,7 +43,33 @@ class RobinBot:
     def cancel_all_orders(self):
         rs.orders.cancel_all_stock_orders()
 
-    def sell_with_conditions(self, ticker_symbol, total_invested):
+    def sell_portfolio(self):
+        ticker_list = self.get_portfolio_symbols()
+        index = 1
+        results = []
+        
+        self.total_in_robinhood = self.get_total_in_robinhood()
+
+        for ticker in ticker_list:
+            
+            if index > self.sell_limit:
+                results.append("Max number of stock sales reached.")
+                return results
+            index += 1
+            result = self.sell_with_conditions(
+                ticker)
+            result = f"Sell {ticker} result: {result}"
+            results.append(result)
+
+        if not results:
+            return "No options to sell."
+        return results
+
+    def sell_with_conditions(self, ticker_symbol):
+
+        if self.total_in_robinhood is None:
+            self.total_in_robinhood = self.get_total_in_robinhood()
+
         current_shares = self.get_shares(ticker_symbol)
         if current_shares == 0:
             return "No shares available for sale."
@@ -66,8 +93,8 @@ class RobinBot:
         if sell_amount == 0 or self.sell_fractional is False:
             return self.sell(current_shares, ticker_symbol, True)
 
-        if sell_amount / total_invested > self.portfolio_sell_threshold:
-            sell_amount = self.portfolio_sell_threshold * total_invested
+        if sell_amount / self.total_in_robinhood > self.portfolio_sell_threshold:
+            sell_amount = self.portfolio_sell_threshold * self.total_in_robinhood
 
         # if sale amount < dollar limit, sell as shares as opposed to price to avoid $1 sale restriction
         if sell_amount < self.sell_dollar_limit:
@@ -98,44 +125,58 @@ class RobinBot:
             return result
         return result
 
-    def buy_from_market(self, buy_limit=False,
-                        include_portfolio_items=False):
+    def buy_from_top_stocks(self, buy_limit=None,
+                                   include_stocks_in_portfolio=False):
 
-        robinhood_total = self.get_total_in_robinhood()
-        portfolio_symbols = self.get_portfolio_symbols() if include_portfolio_items else []
+        
+        portfolio_symbols = self.get_portfolio_symbols(
+        ) if include_stocks_in_portfolio else []
 
-        market_dict = self.sort_top_movers(
-            self.get_top_n_market_movers(), False).items()
+        top_stock_limit = 100 if not buy_limit else buy_limit
+        top_stocks = self.get_top_n_stocks(top_stock_limit)
+        negative_price_changes_for_top_stocks = {
+            k: v for k, v in self.get_price_changes(top_stocks, descending=True).items() if v < 0}
 
-        if not include_portfolio_items:
-            market_dict = {key: value for key, value in market_dict.items(
+        if not include_stocks_in_portfolio:
+            elligible_stocks = {key: value for key, value in negative_price_changes_for_top_stocks.items(
             ) if key not in portfolio_symbols}
+        else:
+            elligible_stocks = negative_price_changes_for_top_stocks
 
-        if not market_dict:
-            return "No negative change for given symbols."
+        if not elligible_stocks:
+            return "No negative change for given stocks."
+        
+        self.total_in_robinhood = self.get_total_in_robinhood()
 
         results = []
         index = 1
-        for key, value in market_dict:
-            """
-            buy stock if the price change is below the buy threshold and current price is not too close to the 52 week
-            high and if the stock is not under a certain amount as a percentage of its 52 week high
-            """
-            if buy_limit is not False:
+        for key in elligible_stocks:
+            
+            if buy_limit:
                 if index > buy_limit:
-                    result = "Max number of stock purchases reached. (" + str(
-                        buy_limit) + ")"
+                    result = f"Max number of stock purchases reached ({buy_limit})"
                     results.append(result)
                     return results
 
-            result = str(self.buy_with_conditions(key, robinhood_total))
-            result = str('Buy ' + key + ' Result: ' + result)
+            result = self.buy_with_conditions(key)
+            result = f"Buy {key} result: {result}"
             results.append(result)
             index += 1
 
         return results
 
-    def buy_with_conditions(self, ticker_symbol, total_invested):
+    def buy_from_ticker_list(self, ticker_list):
+        results = []
+        for ticker in ticker_list:
+            results.append(self.buy_with_conditions(ticker))
+        return results
+
+
+    def buy_with_conditions(self, ticker_symbol):
+
+        if self.total_in_robinhood is None:
+            self.total_in_robinhood = self.get_total_in_robinhood()
+
         buying_power = self.get_buying_power()
         buy_amount = buying_power * self.buying_power_limit
         price_change = self.get_price_change(ticker_symbol)
@@ -143,11 +184,11 @@ class RobinBot:
         year_high = self.get_52_week_high(ticker_symbol)
 
         if buying_power < self.buy_dollar_limit:
-            return "Buying power less than dollar limit. (" + str(buying_power) + ")"
+            return f"Buying power less than dollar limit ({buying_power})"
 
         # check if purchase takes up too much of portfolio
-        if buy_amount / total_invested > self.portfolio_buy_threshold:
-            buy_amount = self.portfolio_buy_threshold * total_invested
+        if buy_amount / self.total_in_robinhood > self.portfolio_buy_threshold:
+            buy_amount = self.portfolio_buy_threshold * self.total_in_robinhood
 
         if buy_amount / buying_power > self.buying_power_limit:
             buy_amount = buying_power * self.buying_power_limit
@@ -182,27 +223,6 @@ class RobinBot:
 
         return result
 
-    def sell_portfolio(self):
-        ticker_list = self.get_portfolio_symbols()
-        index = 1
-        result_list = []
-        total_in_robinhood = self.get_total_in_robinhood()
-
-        for ticker in ticker_list:
-            if index > self.sell_limit:
-                result_item = "Max number of stock sales reached."
-                result_list.append(result_item)
-                return result_list
-            index += 1
-            result = str(self.sell_with_conditions(
-                ticker, total_invested=total_in_robinhood))
-            results = f"Sell {ticker} result: {result}"
-            results.append(result_item)
-
-        if not results:
-            return "No options to sell."
-        return result_list
-
     def get_portfolio_symbols(self):
         portfolio_items = rs.account.build_holdings()
         ticker_symbols = list(portfolio_items.keys())
@@ -223,35 +243,18 @@ class RobinBot:
         current_price = self.get_current_price(ticker_symbol)
         return (current_price - first_price) / first_price
 
-    def get_price_changes(self, ticker_list):
-        mover_data = {}
-        for x in ticker_list:
-            mover_data[x] = self.get_price_change(x)
-        return mover_data
+    def get_price_changes(self, ticker_list, descending=False):
+        price_changes = {}
+        for ticker in ticker_list:
+            price_changes[ticker] = self.get_price_change(ticker)
+        return {k: v for k, v in sorted(price_changes.items(), key=lambda item: item[1], reverse=descending)}
 
-    def get_top_n_market_movers(self, limit=100):
+    def get_top_n_stocks(self, limit=100):
         if limit > 100:
             raise Exception("Limit for top n movers is 100.")
         ticker_list = rs.markets.get_top_100(info='symbol')
         ticker_list = ticker_list[:limit]
         return ticker_list
-
-    def sort_top_movers(self, ticker_list, positive=True):
-        ticker_price_change_dict = self.get_price_changes(ticker_list)
-        single_sided_ticker_dict = {}
-        if positive:
-            single_sided_ticker_dict = dict(
-                reversed(sorted(ticker_price_change_dict.items(), key=lambda item: item[1])))
-            for key, value in single_sided_ticker_dict.items():
-                if value > 0:
-                    single_sided_ticker_dict[key] = value
-            return single_sided_ticker_dict
-        single_sided_ticker_dict = dict(
-            (sorted(ticker_price_change_dict.items(), key=lambda item: item[1])))
-        for key, value in single_sided_ticker_dict.items():
-            if value < 0:
-                single_sided_ticker_dict[key] = value
-        return single_sided_ticker_dict
 
     def get_symbol_equity(self, ticker_symbol):
         portfolio_items = rs.account.build_holdings()
@@ -260,7 +263,7 @@ class RobinBot:
     def get_total_equity(self):
         stock_portfolio_dict = rs.account.build_holdings()
         portfolioEquity = 0
-        for key, value in stock_portfolio_dict.items():
+        for value in stock_portfolio_dict.values():
             portfolioEquity += (float(value.get('equity')))
         return portfolioEquity
 
@@ -304,6 +307,10 @@ class RobinCryptoBot(RobinBot):
 
         return result
 
+    def buy_from_top_stocks(self):
+        raise NotImplementedError("buy_from_top_stocks not available for RobinCryptoBot.")
+
+    
     def get_portfolio_symbols(self):
         crypto_portfolio_items = rs.crypto.get_crypto_positions()
         crypto_portfolio_symbol_list = []
