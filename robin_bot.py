@@ -47,11 +47,11 @@ class RobinBot:
         ticker_list = self.get_portfolio_symbols()
         index = 1
         results = []
-        
+
         self.total_in_robinhood = self.get_total_in_robinhood()
 
         for ticker in ticker_list:
-            
+
             if index > self.sell_limit:
                 results.append("Max number of stock sales reached.")
                 return results
@@ -126,9 +126,8 @@ class RobinBot:
         return result
 
     def buy_from_top_stocks(self, buy_limit=None,
-                                   include_stocks_in_portfolio=False):
+                            include_stocks_in_portfolio=False):
 
-        
         portfolio_symbols = self.get_portfolio_symbols(
         ) if include_stocks_in_portfolio else []
 
@@ -145,13 +144,13 @@ class RobinBot:
 
         if not elligible_stocks:
             return "No negative change for given stocks."
-        
+
         self.total_in_robinhood = self.get_total_in_robinhood()
 
         results = []
         index = 1
         for key in elligible_stocks:
-            
+
             if buy_limit:
                 if index > buy_limit:
                     result = f"Max number of stock purchases reached ({buy_limit})"
@@ -170,7 +169,6 @@ class RobinBot:
         for ticker in ticker_list:
             results.append(self.buy_with_conditions(ticker))
         return results
-
 
     def buy_with_conditions(self, ticker_symbol):
 
@@ -308,9 +306,9 @@ class RobinCryptoBot(RobinBot):
         return result
 
     def buy_from_top_stocks(self):
-        raise NotImplementedError("buy_from_top_stocks not available for RobinCryptoBot.")
+        raise NotImplementedError(
+            "buy_from_top_stocks not available for RobinCryptoBot.")
 
-    
     def get_portfolio_symbols(self):
         crypto_portfolio_items = rs.crypto.get_crypto_positions()
         crypto_portfolio_symbol_list = []
