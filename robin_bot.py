@@ -7,25 +7,25 @@ from dotenv import load_dotenv
 class RobinBot:
     def __init__(self, sandbox=False, **kwargs):
 
-        self.interval = kwargs["interval"]
-        self.span = kwargs["span"]
-        self.data_point = kwargs["data_point"]
-        self.avoid_year_threshold = kwargs["avoid_year_threshold"]
-        self.buy_dollar_limit = kwargs["buy_dollar_limit"]
-        self.buy_threshold = kwargs["buy_threshold"]
-        self.buy_year_threshold = kwargs["buy_year_threshold"]
-        self.buying_power_limit = kwargs["buying_power_limit"]
-        self.crypto_watchlist = kwargs["crypto_watchlist"]
-        self.data_point = kwargs["data_point"]
-        self.interval = kwargs["interval"]
-        self.portfolio_buy_threshold = kwargs["portfolio_buy_threshold"]
-        self.portfolio_sell_threshold = kwargs["portfolio_sell_threshold"]
-        self.profit_threshold = kwargs["profit_threshold"]
-        self.sell_dollar_limit = kwargs["sell_dollar_limit"]
-        self.sell_limit = kwargs["sell_limit"]
-        self.sell_fractional = kwargs["sell_fractional"]
-        self.sell_year_threshold = kwargs["sell_year_threshold"]
-        self.span = kwargs["span"]
+        self.interval = kwargs.get("interval")
+        self.span = kwargs.get("span")
+        self.data_point = kwargs.get("data_point")
+        self.avoid_year_threshold = kwargs.get("avoid_year_threshold")
+        self.buy_dollar_limit = kwargs.get("buy_dollar_limit")
+        self.buy_threshold = kwargs.get("buy_threshold")
+        self.buy_year_threshold = kwargs.get("buy_year_threshold")
+        self.buying_power_limit = kwargs.get("buying_power_limit")
+        self.crypto_watchlist = kwargs.get("crypto_watchlist")
+        self.data_point = kwargs.get("data_point")
+        self.interval = kwargs.get("interval")
+        self.portfolio_buy_threshold = kwargs.get("portfolio_buy_threshold")
+        self.portfolio_sell_threshold = kwargs.get("portfolio_sell_threshold")
+        self.profit_threshold = kwargs.get("profit_threshold")
+        self.sell_dollar_limit = kwargs.get("sell_dollar_limit")
+        self.sell_limit = kwargs.get("sell_limit")
+        self.sell_fractional = kwargs.get("sell_fractional")
+        self.sell_year_threshold = kwargs.get("sell_year_threshold")
+        self.span = kwargs.get("span")
         self.sandbox = sandbox  # won't actually execute orders if set to True
         self.total_in_robinhood = None
 
@@ -285,7 +285,7 @@ class RobinBot:
 class RobinCryptoBot(RobinBot):
     def __init__(self, **kwargs):
         # robin_stocks does not currently support getting top movers for crypto, so I need to set ones to watch manually
-        self.crypto_watchlist = kwargs["crypto_watchlist"]
+        self.crypto_watchlist = kwargs.get("crypto_watchlist")
         super().__init__(**kwargs)
 
     def sell(self, sell_amount, ticker_symbol, shares=False):
